@@ -57,3 +57,162 @@ def delete_alert(db: Session, alert_id: int):
 # get all users
 def _get_all_users(db: Session):
     return db.query(models.User).all()
+
+# Create a new investment
+def create_investment(db: Session, investment: schemas.InvestmentCreate, user_id: int):
+    db_investment = models.Investment(**investment.model_dump(), user_id=user_id)
+    db.add(db_investment)
+    
+    # Update user's total investment
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        if investment.transaction_type == 'add':
+            user.total_investment = (user.total_investment or 0) + investment.amount
+        elif investment.transaction_type == 'withdraw':
+            user.total_investment = (user.total_investment or 0) - investment.amount
+    
+    db.commit()
+    db.refresh(db_investment)
+    return db_investment
+
+# Get investments by user_id
+def get_investments_by_user_id(db: Session, user_id: int):
+    return db.query(models.Investment).filter(models.Investment.user_id == user_id).all()
+
+# Calculate portfolio value and P&L
+def calculate_portfolio_pnl(db: Session, user_id: int):
+    # Get all alerts for the user
+    alerts = db.query(models.Alert).filter(models.Alert.user_id == user_id).all()
+    
+    # Calculate amount invested in shares (cost basis)
+    total_invested_in_shares = 0
+    current_value_of_shares = 0
+    
+    for alert in alerts:
+        # Only consider alerts where shares have actually been bought
+        # Alerts with no shares or no buy_price are just watchlist/monitoring alerts
+        if alert.shares and alert.shares > 0 and alert.buy_price and alert.buy_price > 0:
+            # Calculate cost basis (amount invested)
+            total_invested_in_shares += alert.shares * alert.buy_price
+            
+            # Calculate current value of shares
+            # Use current_price if available, otherwise use buy_price
+            price_to_use = alert.current_price if alert.current_price else alert.buy_price
+            current_value_of_shares += alert.shares * price_to_use
+    
+    # Get total investment
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    total_investment = user.total_investment if user else 0
+    
+    # Calculate cash available
+    cash_available = total_investment - total_invested_in_shares
+    
+    # Calculate total current portfolio value (cash + shares)
+    total_current_value = cash_available + current_value_of_shares
+    
+    # Update user's current value
+    if user:
+        user.current_value = total_current_value
+        db.commit()
+    
+    # Calculate P&L
+    pnl = total_current_value - total_investment
+    pnl_percentage = (pnl / total_investment * 100) if total_investment > 0 else 0
+    
+    return {
+        "total_investment": total_investment,
+        "invested_in_shares": total_invested_in_shares,
+        "cash_available": cash_available,
+        "current_value_of_shares": current_value_of_shares,
+        "current_value": total_current_value,
+        "pnl": pnl,
+        "pnl_percentage": pnl_percentage
+    }
+
+# Phone Number CRUD operations
+def create_phone_number(db: Session, phone_number: schemas.PhoneNumberCreate, user_id: int):
+    db_phone = models.PhoneNumber(**phone_number.model_dump(), user_id=user_id)
+    db.add(db_phone)
+    db.commit()
+    db.refresh(db_phone)
+    return db_phone
+
+def get_phone_numbers_by_user_id(db: Session, user_id: int, active_only: bool = True):
+    query = db.query(models.PhoneNumber).filter(models.PhoneNumber.user_id == user_id)
+    if active_only:
+        query = query.filter(models.PhoneNumber.is_active == True)
+    return query.all()
+
+def update_phone_number(db: Session, phone_id: int, phone_update: schemas.PhoneNumberUpdate):
+    try:
+        db_phone = db.query(models.PhoneNumber).filter(models.PhoneNumber.id == phone_id).first()
+        if not db_phone:
+            return None
+            
+        for key, value in phone_update.model_dump(exclude_unset=True).items():
+            setattr(db_phone, key, value)
+            
+        db.commit()
+        db.refresh(db_phone)
+        return db_phone
+    except Exception as e:
+        db.rollback()
+        logger.error(f"An error occurred: {e}")
+        raise
+
+def delete_phone_number(db: Session, phone_id: int):
+    try:
+        db_phone = db.query(models.PhoneNumber).filter(models.PhoneNumber.id == phone_id).first()
+        if not db_phone:
+            return None
+        db.delete(db_phone)
+        db.commit()
+        return db_phone
+    except Exception as e:
+        db.rollback()
+        logger.error(f"An error occurred: {e}")
+        raise
+
+# Email Recipient CRUD operations
+def create_email_recipient(db: Session, email_recipient: schemas.EmailRecipientCreate, user_id: int):
+    db_email = models.EmailRecipient(**email_recipient.model_dump(), user_id=user_id)
+    db.add(db_email)
+    db.commit()
+    db.refresh(db_email)
+    return db_email
+
+def get_email_recipients_by_user_id(db: Session, user_id: int, active_only: bool = True):
+    query = db.query(models.EmailRecipient).filter(models.EmailRecipient.user_id == user_id)
+    if active_only:
+        query = query.filter(models.EmailRecipient.is_active == True)
+    return query.all()
+
+def update_email_recipient(db: Session, email_id: int, email_update: schemas.EmailRecipientUpdate):
+    try:
+        db_email = db.query(models.EmailRecipient).filter(models.EmailRecipient.id == email_id).first()
+        if not db_email:
+            return None
+            
+        for key, value in email_update.model_dump(exclude_unset=True).items():
+            setattr(db_email, key, value)
+            
+        db.commit()
+        db.refresh(db_email)
+        return db_email
+    except Exception as e:
+        db.rollback()
+        logger.error(f"An error occurred: {e}")
+        raise
+
+def delete_email_recipient(db: Session, email_id: int):
+    try:
+        db_email = db.query(models.EmailRecipient).filter(models.EmailRecipient.id == email_id).first()
+        if not db_email:
+            return None
+        db.delete(db_email)
+        db.commit()
+        return db_email
+    except Exception as e:
+        db.rollback()
+        logger.error(f"An error occurred: {e}")
+        raise

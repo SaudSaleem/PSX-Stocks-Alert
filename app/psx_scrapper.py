@@ -53,16 +53,16 @@ def screen_is_on():
         
 def is_trading_hours():
     """Returns True if the current time is within 9:20 AM to 4:40 PM on weekdays in Pakistan time"""
-
+    return True
     # Get current time in Pakistan timezone
     pakistan_tz = pytz.timezone('Asia/Karachi')
     now = datetime.now(pytz.UTC).astimezone(pakistan_tz)
     print(f"internet_connected:", internet_connected())
     print(f"screen_is_on:", screen_is_on())
-    if not internet_connected():
-        return False
-    if not screen_is_on():
-        return False
+    # if not internet_connected():
+    #     return False
+    # if not screen_is_on():
+    #     return False
     return now.weekday() < 5 and (9, 20) <= (now.hour, now.minute) <= (16, 40)
 
 def scrape_psx():
@@ -79,13 +79,31 @@ def scrape_psx():
         print(f"Error loading tickers: {e}")
         return
     
+    # Set up Chrome options
     options = Options()
     options.add_argument("--headless")  # Run Chrome in headless mode
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-dev-tools")
+    options.add_argument("--no-zygote")
+    options.add_argument("--single-process")
+    
+    # Check if running in Docker (check for environment variable)
+    chrome_bin = os.getenv('CHROME_BIN')
+    chromedriver_path = os.getenv('CHROMEDRIVER_PATH')
+    
+    if chrome_bin and chromedriver_path:
+        # Running in Docker - use system Chrome
+        print(f"Docker environment detected. Using Chrome at: {chrome_bin}")
+        options.binary_location = chrome_bin
+        service = Service(chromedriver_path)
+    else:
+        # Running locally - use ChromeDriverManager
+        print("Local environment detected. Using ChromeDriverManager")
+        service = Service(ChromeDriverManager().install())
+    
     # Set up the Chrome WebDriver
-    service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
 
     url = "https://dps.psx.com.pk/"
@@ -146,7 +164,7 @@ def scrape_psx():
                     "current": current
                 })
                 
-                print(f"Processed {ticker_symbol}: {current}")
+                # print(f"Processed {ticker_symbol}: {current}")
                 
             except Exception as e:
                 print(f"Error processing ticker {ticker_symbol}: {e}")
@@ -160,7 +178,7 @@ def scrape_psx():
             json.dump(stock_data, f, indent=4)
           
         print(f"Successfully processed {len(stock_data)} stocks. Data saved to latest_stock_price.json")
-        sleep(2)
+        sleep(30)
         check_alerts()
 
     except Exception as e:

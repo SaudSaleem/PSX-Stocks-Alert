@@ -49,4 +49,34 @@ class Alert(Base):
     total_alerts_sent = Column(Integer, default=0)
     notes = Column(String, nullable=True)
     date_added = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    date_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)) 
+    date_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+class Investment(Base):
+    __tablename__ = 'investments'
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    amount = Column(Float)
+    transaction_type = Column(String, default='add')  # 'add' or 'withdraw'
+    description = Column(String, nullable=True)
+    date_added = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class PhoneNumber(Base):
+    __tablename__ = 'phone_numbers'
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    phone_number = Column(String)
+    label = Column(String, nullable=True)  # e.g., "Personal", "Work"
+    is_active = Column(Boolean, default=True)
+    date_added = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class EmailRecipient(Base):
+    __tablename__ = 'email_recipients'
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    email = Column(String)
+    label = Column(String, nullable=True)  # e.g., "Personal", "Work", "Partner"
+    is_active = Column(Boolean, default=True)
+    date_added = Column(DateTime, default=lambda: datetime.now(timezone.utc)) 

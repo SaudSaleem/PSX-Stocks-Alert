@@ -54,3 +54,26 @@ class AlertUpdate(BaseModel):
     is_trailing_stop_hit: Optional[bool] = False
     is_dip_buy_hit: Optional[bool] = False
     total_alerts_sent: Optional[int] = 0
+
+class InvestmentCreate(BaseModel):
+    amount: float
+    transaction_type: str = 'add'  # 'add' or 'withdraw'
+    description: Optional[str] = None
+
+class PhoneNumberCreate(BaseModel):
+    phone_number: str
+    label: Optional[str] = None
+
+class PhoneNumberUpdate(BaseModel):
+    phone_number: Optional[str] = None
+    label: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class EmailRecipientCreate(BaseModel):
+    email: str
+    label: Optional[str] = None
+
+class EmailRecipientUpdate(BaseModel):
+    email: Optional[str] = None
+    label: Optional[str] = None
+    is_active: Optional[bool] = None

@@ -1,0 +1,68 @@
+services:
+  # PostgreSQL Database (for production-like environment)
+  db:
+    image: postgres:15-alpine
+    container_name: stocks_alert_db
+    environment:
+      POSTGRES_USER: stocksuser
+      POSTGRES_PASSWORD: stockspass
+      POSTGRES_DB: stocks_alert
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stocksuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stocks_alert_backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Database connection
+      DATABASE_URL: postgresql://stocksuser:stockspass@db:5432/stocks_alert
+      
+      # Email configuration (replace with your values)
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_SERVER: ${MAIL_SERVER}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_STARTTLS: ${MAIL_STARTTLS}
+      
+      # JWT Secret
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      
+      # Twilio (for WhatsApp)
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM}
+      
+      # Chrome/Selenium paths for Docker
+      CHROME_BIN: /usr/bin/chromium
+      CHROMEDRIVER_PATH: /usr/bin/chromedriver
+    
+    volumes:
+      # Mount code for development (hot reload)
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+      # Persist data files
+      - ./app/data:/app/app/data
+    
+    depends_on:
+      db:
+        condition: service_healthy
+    
+    command: sh -c "python init_fresh_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  postgres_data:
+

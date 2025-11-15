@@ -7,10 +7,14 @@ pydantic
 requests
 python-dotenv
 pandas
-passlib
+passlib[bcrypt]
 python-multipart
-bcrypt
+bcrypt==4.0.1
 pyjwt
 pytz
 schedule
 alembic
+twilio
+psycopg2-binary
+selenium
+webdriver-manager

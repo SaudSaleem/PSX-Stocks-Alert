@@ -3,3 +3,9 @@ venv/
 app/__pycache__/
 app/data/
 __pycache__/
+
+# SQLite database files (we use PostgreSQL only)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

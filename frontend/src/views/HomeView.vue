@@ -1,10 +1,48 @@
 <template>
   <div class="home-container flex flex-col">
-    <div class="flex flex-row gap-2">
+    <div class="flex flex-row gap-2 flex-wrap">
       <Button @click="showDrawer = true" style="width: 200px;">Open Drawer</Button>
       <Button @click="showCreateAlertDialog = true" style="width: 200px;">Create Alert</Button>
       <Button @click="showCalculateSharesDialog = true" style="width: 200px;">Calculate Shares</Button>
+      <Button @click="showAddInvestmentDialog = true" style="width: 200px;">Manage Funds</Button>
+      <Button @click="openInvestmentHistory" style="width: 200px;" severity="secondary">Investment History</Button>
+      <Button @click="openPhoneNumbersDialog" style="width: 200px;" severity="help">WhatsApp Numbers</Button>
+      <Button @click="openEmailRecipientsDialog" style="width: 200px;" severity="success">Email Recipients</Button>
+      <Button @click="showTestWhatsAppDialog = true" style="width: 200px;" severity="info">Test WhatsApp</Button>
     </div>
+    <!-- Portfolio Summary Card -->
+    <Card v-if="user && portfolioPnl" class="portfolio-card mt-8">
+      <template #content>
+        <div class="portfolio-summary">
+          <h3>Portfolio Summary</h3>
+          <div class="portfolio-stats">
+            <div class="stat-item">
+              <span class="stat-label">Total Investment:</span>
+              <span class="stat-value">PKR {{ formatCurrency(portfolioPnl.total_investment) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Invested in Shares:</span>
+              <span class="stat-value">PKR {{ formatCurrency(portfolioPnl.invested_in_shares) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Cash Available:</span>
+              <span class="stat-value">PKR {{ formatCurrency(portfolioPnl.cash_available) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Current Value:</span>
+              <span class="stat-value">PKR {{ formatCurrency(portfolioPnl.current_value) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Profit/Loss:</span>
+              <span class="stat-value" :class="portfolioPnl.pnl >= 0 ? 'positive-change' : 'negative-change'">
+                PKR {{ formatCurrency(portfolioPnl.pnl) }} ({{ portfolioPnl.pnl_percentage.toFixed(2) }}%)
+              </span>
+            </div>
+          </div>
+        </div>
+      </template>
+    </Card>
+
     <Card v-if="user" class="welcome-card mt-8">
       <template #content>
         <div class="alerts-section">
@@ -77,8 +115,18 @@
         <p><strong>Email:</strong> {{ user?.email }}</p>
         <p v-if="user?.name"><strong>Name:</strong> {{ user?.name }}</p>
         <p v-if="user?.phone"><strong>Phone:</strong> {{ user?.phone }}</p>
-        <p><strong>Total Investment:</strong> {{ user?.total_investment }}</p>
-        <p><strong>Current Value:</strong> {{ user?.current_value }}</p>
+        <div v-if="portfolioPnl" class="portfolio-info">
+          <h4>Portfolio Summary:</h4>
+          <p><strong>Total Investment:</strong> PKR {{ formatCurrency(portfolioPnl.total_investment) }}</p>
+          <p><strong>Invested in Shares:</strong> PKR {{ formatCurrency(portfolioPnl.invested_in_shares) }}</p>
+          <p><strong>Cash Available:</strong> PKR {{ formatCurrency(portfolioPnl.cash_available) }}</p>
+          <p><strong>Current Value:</strong> PKR {{ formatCurrency(portfolioPnl.current_value) }}</p>
+          <p><strong>Profit/Loss:</strong> 
+            <span :class="portfolioPnl.pnl >= 0 ? 'positive-change' : 'negative-change'">
+              PKR {{ formatCurrency(portfolioPnl.pnl) }} ({{ portfolioPnl.pnl_percentage.toFixed(2) }}%)
+            </span>
+          </p>
+        </div>
       </div>
       <div class="actions">
         <Button label="Logout" @click="logout" />
@@ -233,6 +281,207 @@
         </div>
       </div>
     </Dialog>
+    <Dialog v-model:visible="showAddInvestmentDialog" :header="`Manage Investment`" :modal="true" style="width: 40vw;">
+      <div class="add-investment-form flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
+          <label for="transaction_type">Transaction Type</label>
+          <Select v-model="investment.transaction_type" :options="transactionTypes" optionLabel="label" optionValue="value" placeholder="Select Type" class="flex-1" />
+  </div>
+        <div class="flex flex-col gap-2">
+          <label for="investment_amount">Amount (PKR)</label>
+          <InputNumber v-model="investment.amount" mode="currency" currency="PKR" placeholder="Amount" class="flex-1" :minFractionDigits="2" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="investment_description">Description (Optional)</label>
+          <InputText v-model="investment.description" placeholder="e.g., Monthly investment, Profit withdrawal" class="flex-1" />
+        </div>
+        <div class="w-full flex justify-center mt-3">
+          <Button @click="addInvestment" :label="investment.transaction_type === 'add' ? 'Add Funds' : 'Withdraw Funds'" />
+        </div>
+      </div>
+    </Dialog>
+    <Dialog v-model:visible="showInvestmentHistoryDialog" :header="`Investment History`" :modal="true" style="width: 60vw;">
+      <div class="investment-history">
+        <DataTable :value="investments" stripedRows paginator :rows="10">
+          <Column field="date_added" header="Date" sortable>
+            <template #body="slotProps">
+              {{ new Date(slotProps.data.date_added).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
+            </template>
+          </Column>
+          <Column field="transaction_type" header="Type" sortable>
+            <template #body="slotProps">
+              <span :class="slotProps.data.transaction_type === 'add' ? 'transaction-add' : 'transaction-withdraw'">
+                {{ slotProps.data.transaction_type === 'add' ? 'Add Funds' : 'Withdraw Funds' }}
+              </span>
+            </template>
+          </Column>
+          <Column field="amount" header="Amount" sortable>
+            <template #body="slotProps">
+              <span :class="slotProps.data.transaction_type === 'add' ? 'positive-change' : 'negative-change'">
+                {{ slotProps.data.transaction_type === 'add' ? '+' : '-' }} PKR {{ formatCurrency(slotProps.data.amount) }}
+              </span>
+            </template>
+          </Column>
+          <Column field="description" header="Description"></Column>
+        </DataTable>
+      </div>
+    </Dialog>
+    <Dialog v-model:visible="showPhoneNumbersDialog" :header="`WhatsApp Alert Numbers`" :modal="true" style="width: 60vw;">
+      <div class="phone-numbers-section">
+        <div class="add-phone-form flex gap-3 mb-4">
+          <InputText v-model="newPhoneNumber.phone_number" placeholder="e.g., +923001234567" class="flex-1" />
+          <InputText v-model="newPhoneNumber.label" placeholder="Label (optional, e.g., Personal)" class="flex-1" />
+          <Button @click="addPhoneNumber" label="Add Number" icon="pi pi-plus" />
+        </div>
+        <div class="help-text mb-4">
+          <p class="text-sm text-gray-600">
+            📱 <strong>Format:</strong> Use international format with country code (e.g., +923001234567 for Pakistan)<br/>
+            💬 <strong>For testing:</strong> First, send "join" to whatsapp:+14155238886 from your WhatsApp to join the sandbox
+          </p>
+        </div>
+        <DataTable :value="phoneNumbers" stripedRows>
+          <Column field="phone_number" header="Phone Number"></Column>
+          <Column field="label" header="Label"></Column>
+          <Column field="is_active" header="Status">
+            <template #body="slotProps">
+              <span :class="slotProps.data.is_active ? 'status-active' : 'status-inactive'">
+                {{ slotProps.data.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </template>
+          </Column>
+          <Column field="date_added" header="Added On">
+            <template #body="slotProps">
+              {{ new Date(slotProps.data.date_added).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
+            </template>
+          </Column>
+          <Column field="actions" header="Actions">
+            <template #body="slotProps">
+              <div class="flex gap-2">
+                <Button 
+                  @click="togglePhoneStatus(slotProps.data)" 
+                  :label="slotProps.data.is_active ? 'Deactivate' : 'Activate'" 
+                  :severity="slotProps.data.is_active ? 'warning' : 'success'"
+                  size="small"
+                />
+                <Button 
+                  @click="deletePhoneNumber(slotProps.data.id)" 
+                  label="Delete" 
+                  severity="danger"
+                  size="small"
+                />
+              </div>
+            </template>
+          </Column>
+        </DataTable>
+      </div>
+    </Dialog>
+    <Dialog v-model:visible="showEmailRecipientsDialog" :header="`Email Alert Recipients`" :modal="true" style="width: 60vw;">
+      <div class="email-recipients-section">
+        <div class="add-email-form flex gap-3 mb-4">
+          <InputText v-model="newEmailRecipient.email" placeholder="e.g., example@email.com" class="flex-1" type="email" />
+          <InputText v-model="newEmailRecipient.label" placeholder="Label (optional, e.g., Personal)" class="flex-1" />
+          <Button @click="addEmailRecipient" label="Add Email" icon="pi pi-plus" />
+        </div>
+        <div class="help-text mb-4">
+          <p class="text-sm text-gray-600">
+            📧 <strong>Email Alerts:</strong> Add email addresses to receive stock alerts<br/>
+            💡 <strong>Note:</strong> If no recipients are added, alerts will be sent to your login email by default
+          </p>
+        </div>
+        <DataTable :value="emailRecipients" stripedRows>
+          <Column field="email" header="Email Address"></Column>
+          <Column field="label" header="Label"></Column>
+          <Column field="is_active" header="Status">
+            <template #body="slotProps">
+              <span :class="slotProps.data.is_active ? 'status-active' : 'status-inactive'">
+                {{ slotProps.data.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </template>
+          </Column>
+          <Column field="date_added" header="Added On">
+            <template #body="slotProps">
+              {{ new Date(slotProps.data.date_added).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
+            </template>
+          </Column>
+          <Column field="actions" header="Actions">
+            <template #body="slotProps">
+              <div class="flex gap-2">
+                <Button 
+                  @click="toggleEmailStatus(slotProps.data)" 
+                  :label="slotProps.data.is_active ? 'Deactivate' : 'Activate'" 
+                  :severity="slotProps.data.is_active ? 'warning' : 'success'"
+                  size="small"
+                />
+                <Button 
+                  @click="deleteEmailRecipient(slotProps.data.id)" 
+                  label="Delete" 
+                  severity="danger"
+                  size="small"
+                />
+              </div>
+            </template>
+          </Column>
+        </DataTable>
+      </div>
+    </Dialog>
+    <Dialog v-model:visible="showTestWhatsAppDialog" :header="`Test WhatsApp Alert`" :modal="true" style="width: 50vw;">
+      <div class="test-whatsapp-section">
+        <div class="flex flex-col gap-4">
+          <div class="info-box">
+            <p class="text-sm">
+              <strong>📱 Testing Instructions:</strong><br/>
+              1. Make sure you've joined the Twilio sandbox (send "join your-code" to +14155238886)<br/>
+              2. Add your phone number in WhatsApp Numbers section<br/>
+              3. Use this form to send a test alert to verify everything works
+            </p>
+          </div>
+          
+          <div class="flex flex-col gap-2">
+            <label for="test_phone">Send to Phone Number</label>
+            <Select v-model="testWhatsApp.selectedPhone" :options="phoneNumbers" 
+              optionLabel="phone_number" optionValue="phone_number" 
+              placeholder="Select a phone number" class="flex-1">
+              <template #option="slotProps">
+                <div class="flex justify-between w-full">
+                  <span>{{ slotProps.option.phone_number }}</span>
+                  <span class="text-gray-500 text-sm">{{ slotProps.option.label || 'No label' }}</span>
+                </div>
+              </template>
+            </Select>
+            <small class="text-gray-600">Or manually enter: +country_code_phone (e.g., +923001234567)</small>
+            <InputText v-model="testWhatsApp.customPhone" placeholder="Or enter custom number: +923001234567" />
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="test_message_type">Message Type</label>
+            <Select v-model="testWhatsApp.messageType" :options="testMessageTypes" 
+              optionLabel="label" optionValue="value" 
+              placeholder="Select message type" class="flex-1" />
+          </div>
+
+          <div v-if="testWhatsApp.messageType === 'custom'" class="flex flex-col gap-2">
+            <label for="test_message">Custom Message</label>
+            <textarea v-model="testWhatsApp.customMessage" 
+              placeholder="Enter your test message..."
+              rows="5"
+              class="p-3 border border-gray-300 rounded-md"
+            ></textarea>
+          </div>
+
+          <div class="result-box" v-if="testWhatsApp.result">
+            <p :class="testWhatsApp.result.success ? 'text-green-600' : 'text-red-600'">
+              <strong>{{ testWhatsApp.result.success ? '✅ Success!' : '❌ Error!' }}</strong><br/>
+              {{ testWhatsApp.result.message }}
+            </p>
+          </div>
+
+          <div class="flex justify-center gap-3">
+            <Button @click="sendTestWhatsApp" label="Send Test Message" icon="pi pi-send" :loading="testWhatsApp.loading" />
+            <Button @click="clearTestForm" label="Clear" severity="secondary" outlined />
+          </div>
+        </div>
+      </div>
+    </Dialog>
   </div>
 </template>
 
@@ -271,9 +520,45 @@ export default {
       showDeleteAlertDialog: false,
       showUpdateAlertDialog: false,
       showCalculateSharesDialog: false,
+      showAddInvestmentDialog: false,
+      showInvestmentHistoryDialog: false,
+      showPhoneNumbersDialog: false,
+      showEmailRecipientsDialog: false,
+      showTestWhatsAppDialog: false,
       alerts: [],
       tickers: [],
+      investments: [],
+      phoneNumbers: [],
+      emailRecipients: [],
       selectedAlert: null,
+      portfolioPnl: null,
+      transactionTypes: [
+        { label: 'Add Funds', value: 'add' },
+        { label: 'Withdraw Funds', value: 'withdraw' }
+      ],
+      newPhoneNumber: {
+        phone_number: '',
+        label: ''
+      },
+      newEmailRecipient: {
+        email: '',
+        label: ''
+      },
+      testMessageTypes: [
+        { label: 'Stop Loss Alert Sample', value: 'sl' },
+        { label: 'Take Profit Alert Sample', value: 'tp' },
+        { label: 'Trailing Stop Sample', value: 'trailing' },
+        { label: 'Simple Test Message', value: 'simple' },
+        { label: 'Custom Message', value: 'custom' }
+      ],
+      testWhatsApp: {
+        selectedPhone: '',
+        customPhone: '',
+        messageType: 'simple',
+        customMessage: '',
+        loading: false,
+        result: null
+      },
       alert: {
         ticker: "",
         buy_price: 0,
@@ -295,6 +580,11 @@ export default {
         amount: null,
         result: 0
       },
+      investment: {
+        amount: null,
+        transaction_type: 'add',
+        description: ''
+      },
       pollingInterval: null,
       pollingDelay: 30000 // 30 seconds
     };
@@ -306,6 +596,7 @@ export default {
       this.user = JSON.parse(userJson);
       this.fetchAlerts();
       this.fetchTickers();
+      this.fetchPortfolioPnl();
       // Start polling for alerts
       this.startPolling();
     } else {
@@ -332,6 +623,7 @@ export default {
       // Set up new polling interval
       this.pollingInterval = setInterval(() => {
         this.fetchAlerts();
+        this.fetchPortfolioPnl();
       }, this.pollingDelay);
     },
     
@@ -461,6 +753,285 @@ export default {
       } else {
         this.calcShares.result = 0;
       }
+    },
+    async fetchPortfolioPnl() {
+      try {
+        const response = await axios.get('/portfolio/pnl');
+        this.portfolioPnl = response.data;
+      } catch (error) {
+        console.error('Error fetching portfolio P&L:', error);
+      }
+    },
+    async addInvestment() {
+      try {
+        if (!this.investment.amount || this.investment.amount <= 0) {
+          this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Please enter a valid amount', life: 3000 });
+          return;
+        }
+        await axios.post('/investment', this.investment);
+        this.showAddInvestmentDialog = false;
+        const transactionType = this.investment.transaction_type;
+        this.investment = {
+          amount: null,
+          transaction_type: 'add',
+          description: ''
+        };
+        this.fetchPortfolioPnl();
+        const message = transactionType === 'add' ? 'Funds added successfully' : 'Funds withdrawn successfully';
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: message, life: 3000 });
+      } catch (error) {
+        console.error('Error processing transaction:', error);
+        this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to process transaction', life: 3000 });
+      }
+    },
+    async fetchInvestments() {
+      try {
+        const response = await axios.get('/investments');
+        this.investments = response.data;
+      } catch (error) {
+        console.error('Error fetching investments:', error);
+      }
+    },
+    async openInvestmentHistory() {
+      await this.fetchInvestments();
+      this.showInvestmentHistoryDialog = true;
+    },
+    async fetchPhoneNumbers() {
+      try {
+        const response = await axios.get('/phone-numbers');
+        this.phoneNumbers = response.data;
+      } catch (error) {
+        console.error('Error fetching phone numbers:', error);
+      }
+    },
+    async openPhoneNumbersDialog() {
+      await this.fetchPhoneNumbers();
+      this.showPhoneNumbersDialog = true;
+    },
+    async addPhoneNumber() {
+      try {
+        if (!this.newPhoneNumber.phone_number) {
+          this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Please enter a phone number', life: 3000 });
+          return;
+        }
+        
+        // Basic validation for phone format
+        if (!this.newPhoneNumber.phone_number.startsWith('+')) {
+          this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Phone number must start with + and country code', life: 3000 });
+          return;
+        }
+        
+        await axios.post('/phone-number', this.newPhoneNumber);
+        this.newPhoneNumber = { phone_number: '', label: '' };
+        await this.fetchPhoneNumbers();
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Phone number added successfully', life: 3000 });
+      } catch (error) {
+        console.error('Error adding phone number:', error);
+        this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to add phone number', life: 3000 });
+      }
+    },
+    async togglePhoneStatus(phone) {
+      try {
+        await axios.put(`/phone-number/${phone.id}`, { is_active: !phone.is_active });
+        await this.fetchPhoneNumbers();
+        const status = !phone.is_active ? 'activated' : 'deactivated';
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: `Phone number ${status} successfully`, life: 3000 });
+      } catch (error) {
+        console.error('Error toggling phone status:', error);
+        this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update phone number', life: 3000 });
+      }
+    },
+    async deletePhoneNumber(phoneId) {
+      try {
+        await axios.delete(`/phone-number/${phoneId}`);
+        await this.fetchPhoneNumbers();
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Phone number deleted successfully', life: 3000 });
+      } catch (error) {
+        console.error('Error deleting phone number:', error);
+        this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete phone number', life: 3000 });
+      }
+    },
+    async fetchEmailRecipients() {
+      try {
+        const response = await axios.get('/email-recipients');
+        this.emailRecipients = response.data;
+      } catch (error) {
+        console.error('Error fetching email recipients:', error);
+      }
+    },
+    async openEmailRecipientsDialog() {
+      await this.fetchEmailRecipients();
+      this.showEmailRecipientsDialog = true;
+    },
+    async addEmailRecipient() {
+      try {
+        if (!this.newEmailRecipient.email) {
+          this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Please enter an email address', life: 3000 });
+          return;
+        }
+        
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(this.newEmailRecipient.email)) {
+          this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Please enter a valid email address', life: 3000 });
+          return;
+        }
+        
+        await axios.post('/email-recipient', this.newEmailRecipient);
+        this.newEmailRecipient = { email: '', label: '' };
+        await this.fetchEmailRecipients();
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Email recipient added successfully', life: 3000 });
+      } catch (error) {
+        console.error('Error adding email recipient:', error);
+        this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to add email recipient', life: 3000 });
+      }
+    },
+    async toggleEmailStatus(email) {
+      try {
+        await axios.put(`/email-recipient/${email.id}`, { is_active: !email.is_active });
+        await this.fetchEmailRecipients();
+        const status = !email.is_active ? 'activated' : 'deactivated';
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: `Email recipient ${status} successfully`, life: 3000 });
+      } catch (error) {
+        console.error('Error toggling email status:', error);
+        this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update email recipient', life: 3000 });
+      }
+    },
+    async deleteEmailRecipient(emailId) {
+      try {
+        await axios.delete(`/email-recipient/${emailId}`);
+        await this.fetchEmailRecipients();
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Email recipient deleted successfully', life: 3000 });
+      } catch (error) {
+        console.error('Error deleting email recipient:', error);
+        this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete email recipient', life: 3000 });
+      }
+    },
+    getTestMessage() {
+      const messages = {
+        'sl': `🚨 *Stock Alert: AICL* 🚨
+
+📊 Alert Type: Stop Loss
+💰 Current Price: PKR 105.50
+🎯 Trigger Value: PKR 110.00
+📈 Change: -4.09%
+
+⏰ Time: ${new Date().toLocaleString('en-US')}
+
+📝 Notes: This is a test alert`,
+        'tp': `🚨 *Stock Alert: AICL* 🚨
+
+📊 Alert Type: Take Profit
+💰 Current Price: PKR 125.75
+🎯 Trigger Value: PKR 120.00
+📈 Change: +4.79%
+
+⏰ Time: ${new Date().toLocaleString('en-US')}
+
+📝 Notes: This is a test alert`,
+        'trailing': `🚨 *Stock Alert: AICL* 🚨
+
+📊 Alert Type: Trailing Stop
+💰 Current Price: PKR 108.50
+🎯 Trigger Value: PKR 115.00
+📈 Change: -5.65%
+
+⏰ Time: ${new Date().toLocaleString('en-US')}
+
+📝 Notes: This is a test alert`,
+        'simple': `📱 *Test Message from Stock Alert App*
+
+Hello! This is a test WhatsApp message to verify your Twilio integration is working correctly.
+
+✅ If you receive this, your setup is successful!
+
+Time: ${new Date().toLocaleString('en-US')}`,
+        'custom': this.testWhatsApp.customMessage
+      };
+      return messages[this.testWhatsApp.messageType] || messages['simple'];
+    },
+    async sendTestWhatsApp() {
+      try {
+        this.testWhatsApp.loading = true;
+        this.testWhatsApp.result = null;
+
+        // Determine which phone number to use
+        let phoneNumber = this.testWhatsApp.customPhone || this.testWhatsApp.selectedPhone;
+        
+        if (!phoneNumber) {
+          this.$toast.add({ 
+            severity: 'error', 
+            summary: 'Error', 
+            detail: 'Please select or enter a phone number', 
+            life: 3000 
+          });
+          this.testWhatsApp.loading = false;
+          return;
+        }
+
+        // Validate custom message if custom type is selected
+        if (this.testWhatsApp.messageType === 'custom' && !this.testWhatsApp.customMessage.trim()) {
+          this.$toast.add({ 
+            severity: 'error', 
+            summary: 'Error', 
+            detail: 'Please enter a custom message', 
+            life: 3000 
+          });
+          this.testWhatsApp.loading = false;
+          return;
+        }
+
+        const message = this.getTestMessage();
+
+        const response = await axios.post('/test-whatsapp', {
+          phone_number: phoneNumber,
+          message: message
+        });
+
+        this.testWhatsApp.result = {
+          success: true,
+          message: `Message sent successfully! Check your WhatsApp at ${phoneNumber}`
+        };
+
+        this.$toast.add({ 
+          severity: 'success', 
+          summary: 'Success', 
+          detail: 'Test WhatsApp message sent!', 
+          life: 5000 
+        });
+
+      } catch (error) {
+        console.error('Error sending test WhatsApp:', error);
+        const errorMessage = error.response?.data?.detail || 'Failed to send test message. Check your Twilio credentials.';
+        
+        this.testWhatsApp.result = {
+          success: false,
+          message: errorMessage
+        };
+
+        this.$toast.add({ 
+          severity: 'error', 
+          summary: 'Error', 
+          detail: errorMessage, 
+          life: 5000 
+        });
+      } finally {
+        this.testWhatsApp.loading = false;
+      }
+    },
+    clearTestForm() {
+      this.testWhatsApp = {
+        selectedPhone: '',
+        customPhone: '',
+        messageType: 'simple',
+        customMessage: '',
+        loading: false,
+        result: null
+      };
+    },
+    formatCurrency(value) {
+      if (value === null || value === undefined) return '0.00';
+      return Number(value).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
   }
 }
@@ -554,5 +1125,152 @@ export default {
 .box-break {
   background-color: #e0f2fe;
   color: #0369a1;
+}
+
+.dip-buy {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.portfolio-card {
+  width: 100%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.portfolio-summary {
+  color: white;
+}
+
+.portfolio-summary h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.portfolio-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.portfolio-info {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.portfolio-info h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-color);
+}
+
+.transaction-add {
+  padding: 0.25rem 0.75rem;
+  background-color: #dcfce7;
+  color: #15803d;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.transaction-withdraw {
+  padding: 0.25rem 0.75rem;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.investment-history {
+  margin-top: 1rem;
+}
+
+.phone-numbers-section {
+  margin-top: 1rem;
+}
+
+.add-phone-form {
+  background-color: #f9fafb;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.help-text {
+  background-color: #eff6ff;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
+}
+
+.status-active {
+  padding: 0.25rem 0.75rem;
+  background-color: #dcfce7;
+  color: #15803d;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.status-inactive {
+  padding: 0.25rem 0.75rem;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.test-whatsapp-section {
+  margin-top: 1rem;
+}
+
+.info-box {
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-left: 4px solid #0284c7;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.result-box {
+  background-color: #f9fafb;
+  border: 2px solid #e5e7eb;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.test-whatsapp-section textarea {
+  font-family: inherit;
+  resize: vertical;
+}
+
+.test-whatsapp-section small {
+  display: block;
+  margin-top: 0.25rem;
 }
 </style>

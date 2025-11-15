@@ -2,7 +2,7 @@
 
 A full-stack application that tracks Pakistan Stock Exchange (PSX) stocks in real-time, lets users create price alerts (take-profit, stop-loss, trailing stop, dip-buy & more) and emails them when a trigger fires.
 
-* **Backend:** FastAPI • SQLAlchemy • SQLite • Selenium • APScheduler • JWT Auth
+* **Backend:** FastAPI • SQLAlchemy • PostgreSQL • Selenium • APScheduler • JWT Auth
 * **Frontend:** Vue 3 • Vite • TailwindCSS (found in `frontend/` – optional)
 
 > Live API documentation is automatically available when the server is running at **`http://localhost:8000/docs`** (Swagger UI).
@@ -64,14 +64,21 @@ $ git clone https://github.com/your-user/stocks-alert.git
 $ cd stocks-alert
 
 # 2. Create and activate virtual environment (macOS/Linux)
-$ python -m venv venv
+$ python3 -m venv venv
 $ source venv/bin/activate
 
 # 3. Install dependencies
 (venv) $ pip install -r requirements.txt
 
-# 4. Environment variables (email credentials for alerts)
-#    create a .env file at project root
+# 4. Start PostgreSQL database with Docker
+$ docker-compose up -d db
+
+# 5. Create .env file with database and email configuration
+#    Copy from env.example and update with your values
+$ cp env.example .env
+
+# Edit .env with your settings:
+DATABASE_URL=postgresql://stocksuser:stockspass@localhost:5432/stocks_alert
 MAIL_USERNAME=your_email@example.com
 MAIL_PASSWORD=app_or_login_password
 MAIL_FROM=your_email@example.com
@@ -79,10 +86,10 @@ MAIL_SERVER=smtp.gmail.com
 MAIL_PORT=587
 MAIL_STARTTLS=True
 
-# 5. Create SQLite tables
-(venv) $ python -m app.init_db
+# 6. Run database migrations
+(venv) $ alembic upgrade head
 
-# 6. Run the API (reloads on code changes)
+# 7. Run the API (reloads on code changes)
 (venv) $ uvicorn app.main:app --reload
 ```
 
