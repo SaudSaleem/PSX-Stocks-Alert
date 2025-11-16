@@ -15,6 +15,8 @@ class User(Base):
     token = Column(String, nullable=True)
     total_investment = Column(Float, default=0)
     current_value = Column(Float, default=0)
+    email_notifications_enabled = Column(Boolean, default=True)
+    whatsapp_notifications_enabled = Column(Boolean, default=False)
 
 class Alert(Base):
     __tablename__ = 'alerts'

@@ -77,3 +77,7 @@ class EmailRecipientUpdate(BaseModel):
     email: Optional[str] = None
     label: Optional[str] = None
     is_active: Optional[bool] = None
+
+class NotificationPreferencesUpdate(BaseModel):
+    email_notifications_enabled: Optional[bool] = None
+    whatsapp_notifications_enabled: Optional[bool] = None

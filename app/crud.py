@@ -216,3 +216,21 @@ def delete_email_recipient(db: Session, email_id: int):
         db.rollback()
         logger.error(f"An error occurred: {e}")
         raise
+
+# Notification Preferences CRUD operations
+def update_notification_preferences(db: Session, user_id: int, preferences: schemas.NotificationPreferencesUpdate):
+    try:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            return None
+            
+        for key, value in preferences.model_dump(exclude_unset=True).items():
+            setattr(user, key, value)
+            
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception as e:
+        db.rollback()
+        logger.error(f"An error occurred: {e}")
+        raise

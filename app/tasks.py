@@ -67,7 +67,7 @@ def fetch_stock_price(stock_name: str):
 
 def send_alert_notification(db, user, alert_type, email_subject, email_body, alert_data):
     """
-    Helper function to send alerts via both email and WhatsApp
+    Helper function to send alerts via both email and WhatsApp based on user preferences
     
     Args:
         db: Database session
@@ -77,36 +77,44 @@ def send_alert_notification(db, user, alert_type, email_subject, email_body, ale
         email_body: Body for email
         alert_data: Dictionary with alert information for WhatsApp formatting
     """
-    # Send emails to all active email recipients
-    try:
-        email_recipients = get_email_recipients_by_user_id(db, user.id, active_only=True)
-        if email_recipients and len(email_recipients) > 0:
-            for recipient in email_recipients:
+    # Send emails only if email notifications are enabled
+    if user.email_notifications_enabled:
+        try:
+            email_recipients = get_email_recipients_by_user_id(db, user.id, active_only=True)
+            if email_recipients and len(email_recipients) > 0:
+                for recipient in email_recipients:
+                    try:
+                        send_email(email_subject, email_body, recipient.email, MAIL_FROM, MAIL_PASSWORD)
+                        print(f"Email sent successfully to {recipient.email}")
+                    except Exception as e:
+                        print(f"Error sending email to {recipient.email}: {e}")
+            else:
+                # Fallback to user's login email if no recipients are registered
                 try:
-                    send_email(email_subject, email_body, recipient.email, MAIL_FROM, MAIL_PASSWORD)
-                    print(f"Email sent successfully to {recipient.email}")
+                    send_email(email_subject, email_body, user.email, MAIL_FROM, MAIL_PASSWORD)
+                    print(f"Email sent to user's login email: {user.email}")
                 except Exception as e:
-                    print(f"Error sending email to {recipient.email}: {e}")
-        else:
-            # Fallback to user's login email if no recipients are registered
-            try:
-                send_email(email_subject, email_body, user.email, MAIL_FROM, MAIL_PASSWORD)
-                print(f"Email sent to user's login email: {user.email}")
-            except Exception as e:
-                print(f"Error sending email to {user.email}: {e}")
-    except Exception as e:
-        print(f"Error fetching email recipients: {e}")
+                    print(f"Error sending email to {user.email}: {e}")
+        except Exception as e:
+            print(f"Error fetching email recipients: {e}")
+    else:
+        print(f"Email notifications disabled for user {user.email}")
     
-    # Send WhatsApp messages to all active phone numbers
-    try:
-        phone_numbers = get_phone_numbers_by_user_id(db, user.id, active_only=True)
-        if phone_numbers and len(phone_numbers) > 0:
-            phone_list = [phone.phone_number for phone in phone_numbers]
-            whatsapp_message = format_alert_message(alert_data)
-            result = send_alert_to_multiple(phone_list, whatsapp_message)
-            print(f"WhatsApp alerts sent: {result['successful']}/{result['total']}")
-    except Exception as e:
-        print(f"Error sending WhatsApp alerts: {e}")
+    # Send WhatsApp messages only if WhatsApp notifications are enabled
+    if user.whatsapp_notifications_enabled:
+        try:
+            phone_numbers = get_phone_numbers_by_user_id(db, user.id, active_only=True)
+            if phone_numbers and len(phone_numbers) > 0:
+                phone_list = [phone.phone_number for phone in phone_numbers]
+                whatsapp_message = format_alert_message(alert_data)
+                result = send_alert_to_multiple(phone_list, whatsapp_message)
+                print(f"WhatsApp alerts sent: {result['successful']}/{result['total']}")
+            else:
+                print(f"No active phone numbers found for user {user.email}")
+        except Exception as e:
+            print(f"Error sending WhatsApp alerts: {e}")
+    else:
+        print(f"WhatsApp notifications disabled for user {user.email}")
 
 # Function to check alerts
 def check_alerts():

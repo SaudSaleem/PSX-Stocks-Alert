@@ -1,6 +1,6 @@
 <template>
   <div class="home-container flex flex-col">
-    <div class="flex flex-row gap-2 flex-wrap">
+    <div class="flex flex-row gap-2 flex-wrap items-center">
       <Button @click="showDrawer = true" style="width: 200px;">Open Drawer</Button>
       <Button @click="showCreateAlertDialog = true" style="width: 200px;">Create Alert</Button>
       <Button @click="showCalculateSharesDialog = true" style="width: 200px;">Calculate Shares</Button>
@@ -9,6 +9,17 @@
       <Button @click="openPhoneNumbersDialog" style="width: 200px;" severity="help">WhatsApp Numbers</Button>
       <Button @click="openEmailRecipientsDialog" style="width: 200px;" severity="success">Email Recipients</Button>
       <Button @click="showTestWhatsAppDialog = true" style="width: 200px;" severity="info">Test WhatsApp</Button>
+      
+      <!-- Complexity Toggle -->
+      <div class="flex items-center gap-2 ml-auto">
+        <label for="complexity-toggle" class="font-semibold">Show Advanced Fields:</label>
+        <input 
+          id="complexity-toggle" 
+          type="checkbox" 
+          v-model="showComplexity" 
+          class="toggle-checkbox"
+        />
+      </div>
     </div>
     <!-- Portfolio Summary Card -->
     <Card v-if="user && portfolioPnl" class="portfolio-card mt-8">
@@ -48,6 +59,7 @@
         <div class="alerts-section">
           <Button @click="fetchAlerts" class="mb-4">Refresh Alerts</Button>
           <DataTable :value="alerts" stripedRows paginator :rows="10" tableStyle="min-width: 160rem">
+            <!-- Basic Columns -->
             <Column field="ticker" header="Ticker" sortable></Column>
             <Column field="buy_price" header="Buy Price" sortable></Column>
             <Column field="current_price" header="Current Price" sortable></Column>
@@ -59,8 +71,19 @@
               </template>
             </Column>
             <Column field="shares" header="Shares"></Column>
-            <Column field="total_alerts_sent" header="Total Alerts Sent"></Column>
-            <Column header="Status">
+            <Column field="sl" header="SL"></Column>
+            <Column field="tp1" header="TP1"></Column>
+            <Column field="tp2" header="TP2"></Column>
+            <Column field="tp3" header="TP3"></Column>
+            
+            <!-- Advanced Columns (shown when showComplexity is true) -->
+            <Column v-if="showComplexity" field="percentage_tp" header="TP %"></Column>
+            <Column v-if="showComplexity" field="percentage_sl" header="SL %"></Column>
+            <Column v-if="showComplexity" field="dip_buy" header="Dip Buy"></Column>
+            <Column v-if="showComplexity" field="box_break" header="Box Break"></Column>
+            <Column v-if="showComplexity" field="notes" header="Notes"></Column>
+            <Column v-if="showComplexity" field="total_alerts_sent" header="Total Alerts Sent"></Column>
+            <Column v-if="showComplexity" header="Status">
               <template #body="slotProps">
                 <div class="status-indicators">
                   <span v-if="slotProps.data.is_sl_hit" class="status-badge sl-hit">SL Hit</span>
@@ -75,25 +98,18 @@
                 </div>
               </template>
             </Column>
-            <Column field="tp1" header="TP1 Price"></Column>
-            <Column field="tp2" header="TP2 Price"></Column>
-            <Column field="tp3" header="TP3 Price"></Column>
-            <Column field="percentage_tp" header="TP %"></Column>
-            <Column field="dip_buy" header="Dip Buy"></Column>
-            <Column field="box_break" header="Box Break"></Column>
-            <Column field="sl" header="SL"></Column>
-            <Column field="percentage_sl" header="SL %"></Column>
-            <Column field="notes" header="Notes"></Column>
-            <Column field="date_added" header="Created At">
+            <Column v-if="showComplexity" field="date_added" header="Created At">
               <template #body="slotProps">
                 {{ new Date(slotProps.data.date_added).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) }}
               </template>
             </Column>
-            <Column field="date_modified" header="Last Modified">
+            <Column v-if="showComplexity" field="date_modified" header="Last Modified">
               <template #body="slotProps">
                 {{ new Date(slotProps.data.date_modified).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) }}
               </template>
             </Column>
+            
+            <!-- Action Columns (always shown) -->
             <Column field="update" header="Update">
               <template #body="slotProps">
                 <Button @click="showUpdateAlertDialog = true; selectedAlert = {...slotProps.data}" label="Update" severity="warning" />
@@ -127,6 +143,33 @@
             </span>
           </p>
         </div>
+        
+        <!-- Notification Preferences -->
+        <div class="notification-preferences">
+          <h4>Notification Preferences:</h4>
+          <div class="preference-item">
+            <label class="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                v-model="notificationPreferences.email_notifications_enabled"
+                @change="updateNotificationPreferences('email_notifications_enabled', notificationPreferences.email_notifications_enabled)"
+                class="toggle-checkbox"
+              />
+              <span>📧 Email Notifications</span>
+            </label>
+          </div>
+          <div class="preference-item">
+            <label class="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                v-model="notificationPreferences.whatsapp_notifications_enabled"
+                @change="updateNotificationPreferences('whatsapp_notifications_enabled', notificationPreferences.whatsapp_notifications_enabled)"
+                class="toggle-checkbox"
+              />
+              <span>📱 WhatsApp Notifications</span>
+            </label>
+          </div>
+        </div>
       </div>
       <div class="actions">
         <Button label="Logout" @click="logout" />
@@ -134,6 +177,7 @@
     </Drawer>
     <Dialog v-model:visible="showCreateAlertDialog" :header="`Create Alert`" :modal="true" style="width: 50vw;">
       <div class="create-alert-form flex flex-wrap gap-2">
+        <!-- Basic Fields -->
         <div class="flex flex-col gap-2 flex-1">
           <label for="ticker">Ticker</label>
           <Select v-model="alert.ticker" filter clearIcon :options="tickers" optionLabel="symbol" optionValue="symbol"
@@ -143,6 +187,14 @@
         <div class="flex flex-col gap-2 flex-1">
           <label for="buy_price">Buy Price</label>
           <InputNumber v-model="alert.buy_price" placeholder="Buy Price" class="flex-1" :minFractionDigits="2" />
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+          <label for="shares">Shares</label>
+          <InputNumber v-model="alert.shares" placeholder="Shares" class="flex-1" :minFractionDigits="2" />
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+          <label for="sl">SL</label>
+          <InputNumber v-model="alert.sl" placeholder="SL" class="flex-1" :minFractionDigits="2" />
         </div>
         <div class="flex flex-col gap-2 flex-1">
           <label for="tp1">TP1</label>
@@ -157,37 +209,33 @@
           <InputNumber v-model="alert.tp3" placeholder="TP3" class="flex-1" :minFractionDigits="2" />
         </div>
         <div class="flex flex-col gap-2 flex-1">
-          <label for="sl">SL</label>
-          <InputNumber v-model="alert.sl" placeholder="SL" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="percentage_tp">TP %</label>
-          <InputNumber v-model="alert.percentage_tp" placeholder="TP %" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="box_break">Box Break</label>
-          <InputNumber v-model="alert.box_break" placeholder="Box Break" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="dip_buy">Dip Buy</label>
-          <InputNumber v-model="alert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="percentage_sl">SL %</label>
-          <InputNumber v-model="alert.percentage_sl" placeholder="SL %" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="trailing_stop_percentage">Trailing Stop %</label>
-          <InputNumber v-model="alert.trailing_stop_percentage" placeholder="Trailing Stop %" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="shares">Shares</label>
-          <InputNumber v-model="alert.shares" placeholder="Shares" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
           <label for="notes">Notes</label>
           <InputText v-model="alert.notes" placeholder="Notes" class="flex-1" />
         </div>
+        
+        <!-- Advanced Fields (shown when showComplexity is true) -->
+        <template v-if="showComplexity">
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="percentage_tp">TP %</label>
+            <InputNumber v-model="alert.percentage_tp" placeholder="TP %" class="flex-1" :minFractionDigits="2" />
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="percentage_sl">SL %</label>
+            <InputNumber v-model="alert.percentage_sl" placeholder="SL %" class="flex-1" :minFractionDigits="2" />
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="box_break">Box Break</label>
+            <InputNumber v-model="alert.box_break" placeholder="Box Break" class="flex-1" :minFractionDigits="2" />
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="dip_buy">Dip Buy</label>
+            <InputNumber v-model="alert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="trailing_stop_percentage">Trailing Stop %</label>
+            <InputNumber v-model="alert.trailing_stop_percentage" placeholder="Trailing Stop %" class="flex-1" :minFractionDigits="2" />
+          </div>
+        </template>
       </div>
       <div class="w-full flex justify-center mt-3">
         <Button @click="createAlert" label="Create Alert" />
@@ -201,6 +249,7 @@
     </Dialog>
     <Dialog v-model:visible="showUpdateAlertDialog" :header="`Update Alert`" :modal="true" style="width: 50vw;">
       <div class="update-alert-form flex flex-wrap gap-2">
+        <!-- Basic Fields -->
         <div class="flex flex-col gap-2 flex-1">
           <label for="ticker">Ticker</label>
           <Select v-model="selectedAlert.ticker" disabled filter clearIcon :options="tickers" optionLabel="symbol" optionValue="symbol"
@@ -210,6 +259,14 @@
         <div class="flex flex-col gap-2 flex-1">
           <label for="buy_price">Buy Price</label>
           <InputNumber v-model="selectedAlert.buy_price" placeholder="Buy Price" class="flex-1" :minFractionDigits="2" />
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+          <label for="shares">Shares</label>
+          <InputNumber v-model="selectedAlert.shares" placeholder="Shares" class="flex-1" :minFractionDigits="2" />
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+          <label for="sl">SL</label>
+          <InputNumber v-model="selectedAlert.sl" placeholder="SL" class="flex-1" :minFractionDigits="2" />
         </div>
         <div class="flex flex-col gap-2 flex-1">
           <label for="tp1">TP1</label>
@@ -224,37 +281,33 @@
           <InputNumber v-model="selectedAlert.tp3" placeholder="TP3" class="flex-1" :minFractionDigits="2" />
         </div>
         <div class="flex flex-col gap-2 flex-1">
-          <label for="percentage_tp">TP %</label>
-          <InputNumber v-model="selectedAlert.percentage_tp" placeholder="TP %" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="box_break">Box Break</label>
-          <InputNumber v-model="selectedAlert.box_break" placeholder="Box Break" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="dip_buy">Dip Buy</label>
-          <InputNumber v-model="selectedAlert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="sl">SL</label>
-          <InputNumber v-model="selectedAlert.sl" placeholder="SL" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="percentage_sl">SL %</label>
-          <InputNumber v-model="selectedAlert.percentage_sl" placeholder="SL %" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="trailing_stop_percentage">Trailing Stop %</label>
-          <InputNumber v-model="selectedAlert.trailing_stop_percentage" placeholder="Trailing Stop %" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
-          <label for="shares">Shares</label>
-          <InputNumber v-model="selectedAlert.shares" placeholder="Shares" class="flex-1" :minFractionDigits="2" />
-        </div>
-        <div class="flex flex-col gap-2 flex-1">
           <label for="notes">Notes</label>
           <InputText v-model="selectedAlert.notes" placeholder="Notes" class="flex-1" />
         </div>
+        
+        <!-- Advanced Fields (shown when showComplexity is true) -->
+        <template v-if="showComplexity">
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="percentage_tp">TP %</label>
+            <InputNumber v-model="selectedAlert.percentage_tp" placeholder="TP %" class="flex-1" :minFractionDigits="2" />
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="percentage_sl">SL %</label>
+            <InputNumber v-model="selectedAlert.percentage_sl" placeholder="SL %" class="flex-1" :minFractionDigits="2" />
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="box_break">Box Break</label>
+            <InputNumber v-model="selectedAlert.box_break" placeholder="Box Break" class="flex-1" :minFractionDigits="2" />
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="dip_buy">Dip Buy</label>
+            <InputNumber v-model="selectedAlert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            <label for="trailing_stop_percentage">Trailing Stop %</label>
+            <InputNumber v-model="selectedAlert.trailing_stop_percentage" placeholder="Trailing Stop %" class="flex-1" :minFractionDigits="2" />
+          </div>
+        </template>
       </div>
       <div class="w-full flex justify-center mt-3">
         <Button @click="updateAlert" label="Update Alert" />
@@ -532,6 +585,11 @@ export default {
       emailRecipients: [],
       selectedAlert: null,
       portfolioPnl: null,
+      showComplexity: false,  // Toggle for showing advanced fields
+      notificationPreferences: {
+        email_notifications_enabled: true,
+        whatsapp_notifications_enabled: false
+      },
       transactionTypes: [
         { label: 'Add Funds', value: 'add' },
         { label: 'Withdraw Funds', value: 'withdraw' }
@@ -597,6 +655,7 @@ export default {
       this.fetchAlerts();
       this.fetchTickers();
       this.fetchPortfolioPnl();
+      this.fetchNotificationPreferences();
       // Start polling for alerts
       this.startPolling();
     } else {
@@ -1032,6 +1091,35 @@ Time: ${new Date().toLocaleString('en-US')}`,
     formatCurrency(value) {
       if (value === null || value === undefined) return '0.00';
       return Number(value).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+    async fetchNotificationPreferences() {
+      try {
+        const response = await axios.get('/notification-preferences');
+        this.notificationPreferences = response.data;
+      } catch (error) {
+        console.error('Error fetching notification preferences:', error);
+      }
+    },
+    async updateNotificationPreferences(field, value) {
+      try {
+        const update = { [field]: value };
+        await axios.put('/notification-preferences', update);
+        this.notificationPreferences[field] = value;
+        this.$toast.add({ 
+          severity: 'success', 
+          summary: 'Success', 
+          detail: 'Notification preferences updated', 
+          life: 3000 
+        });
+      } catch (error) {
+        console.error('Error updating notification preferences:', error);
+        this.$toast.add({ 
+          severity: 'error', 
+          summary: 'Error', 
+          detail: 'Failed to update preferences', 
+          life: 3000 
+        });
+      }
     }
   }
 }
@@ -1272,5 +1360,58 @@ Time: ${new Date().toLocaleString('en-US')}`,
 .test-whatsapp-section small {
   display: block;
   margin-top: 0.25rem;
+}
+
+/* Toggle Checkbox Styles */
+.toggle-checkbox {
+  width: 48px;
+  height: 24px;
+  appearance: none;
+  background-color: #cbd5e0;
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.toggle-checkbox:checked {
+  background-color: #667eea;
+}
+
+.toggle-checkbox::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: white;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s;
+}
+
+.toggle-checkbox:checked::before {
+  transform: translateX(24px);
+}
+
+/* Notification Preferences Styles */
+.notification-preferences {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.notification-preferences h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-color);
+}
+
+.preference-item {
+  margin: 0.75rem 0;
+}
+
+.preference-item label {
+  cursor: pointer;
+  user-select: none;
 }
 </style>
