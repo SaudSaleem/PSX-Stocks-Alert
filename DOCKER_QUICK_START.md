@@ -18,6 +18,7 @@ nano .env  # or use any text editor
 ```
 
 **Required variables to change:**
+- `DATABASE_URL` - Your Supabase connection string (see SUPABASE_MIGRATION.md)
 - `MAIL_USERNAME` - Your email
 - `MAIL_PASSWORD` - Your email app password
 - `MAIL_FROM` - Your email
@@ -84,9 +85,6 @@ docker-compose down
 # Restart after code changes
 docker-compose restart backend
 
-# Access database
-docker-compose exec db psql -U stocksuser -d stocks_alert
-
 # Shell into backend container
 docker-compose exec backend bash
 
@@ -107,10 +105,11 @@ docker-compose logs backend
 
 ### Database connection error?
 ```bash
-# Make sure database is healthy
-docker-compose ps
+# Verify your DATABASE_URL is correct in .env file
+# Make sure you replaced [YOUR_PASSWORD] with your actual Supabase password
+# Check Supabase dashboard to ensure your database is active
 
-# Wait for database to be ready, then restart backend
+# Restart backend after fixing .env
 docker-compose restart backend
 ```
 

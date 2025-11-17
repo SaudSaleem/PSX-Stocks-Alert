@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs shell db-shell migrate test clean
+.PHONY: help build up down restart logs shell migrate test clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -28,9 +28,6 @@ logs-all: ## Show all logs (follow mode)
 
 shell: ## Open shell in backend container
 	docker-compose exec backend bash
-
-db-shell: ## Open PostgreSQL shell
-	docker-compose exec db psql -U stocksuser -d stocks_alert
 
 migrate: ## Run database migrations
 	docker-compose exec backend alembic upgrade head

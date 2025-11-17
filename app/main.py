@@ -18,11 +18,26 @@ from typing import Optional
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: start the PSX scraper scheduler
+    # Startup: Pre-warm database connection pool for faster first requests
+    from .database import SessionLocal, engine
+    from sqlalchemy import text
+    print("Pre-warming database connection pool...")
+    try:
+        # Create initial connections in the pool
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            conn.commit()
+        print("✅ Database connection pool ready")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not pre-warm connection pool: {e}")
+    
+    # Start the PSX scraper scheduler
     start_scheduler()
     yield
     # Shutdown: stop the PSX scraper scheduler
     stop_scheduler()
+    # Dispose of the connection pool
+    engine.dispose()
 
 app = FastAPI(lifespan=lifespan)
 # Global variable to store tickers
@@ -34,10 +49,21 @@ tickers_cache = fetch_all_tickers()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],  # Frontend URL
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:8082",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:8082",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Dependency to get the database session

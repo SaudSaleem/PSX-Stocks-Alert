@@ -53,7 +53,6 @@ def screen_is_on():
         
 def is_trading_hours():
     """Returns True if the current time is within 9:20 AM to 4:40 PM on weekdays in Pakistan time"""
-    return True
     # Get current time in Pakistan timezone
     pakistan_tz = pytz.timezone('Asia/Karachi')
     now = datetime.now(pytz.UTC).astimezone(pakistan_tz)

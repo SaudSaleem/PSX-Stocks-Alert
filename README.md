@@ -70,15 +70,17 @@ $ source venv/bin/activate
 # 3. Install dependencies
 (venv) $ pip install -r requirements.txt
 
-# 4. Start PostgreSQL database with Docker
-$ docker-compose up -d db
+# 4. Setup Database (Supabase)
+# Get your Supabase connection string from:
+# Supabase Dashboard > Settings > Database > Connection String (URI)
+# See SUPABASE_MIGRATION.md for detailed setup instructions
 
 # 5. Create .env file with database and email configuration
 #    Copy from env.example and update with your values
 $ cp env.example .env
 
 # Edit .env with your settings:
-DATABASE_URL=postgresql://stocksuser:stockspass@localhost:5432/stocks_alert
+DATABASE_URL=postgresql://postgres:[YOUR_PASSWORD]@db.xxx.supabase.co:5432/postgres
 MAIL_USERNAME=your_email@example.com
 MAIL_PASSWORD=app_or_login_password
 MAIL_FROM=your_email@example.com
