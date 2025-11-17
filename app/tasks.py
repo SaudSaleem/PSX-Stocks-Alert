@@ -22,6 +22,12 @@ MAIL_STARTTLS = os.getenv('MAIL_STARTTLS')
 def get_ticker_by_symbol(ticker: str):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     tickers_path = os.path.join(script_dir, "data", "latest_stock_price.json")
+    
+    # Check if file exists, if not return empty data
+    if not os.path.exists(tickers_path):
+        print(f"Warning: {tickers_path} not found. Scraper hasn't run yet.")
+        return []
+    
     with open(tickers_path, "r") as f:
         data = json.load(f)
     for item in data:
@@ -58,6 +64,12 @@ def calculate_percentage_change(current_price, buy_price):
 def fetch_stock_price(stock_name: str):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     tickers_path = os.path.join(script_dir, "data", "latest_stock_price.json")
+    
+    # Check if file exists, if not return None
+    if not os.path.exists(tickers_path):
+        print(f"Warning: {tickers_path} not found. Scraper hasn't run yet.")
+        return None
+    
     with open(tickers_path, "r") as f:
         data = json.load(f)
     for item in data:

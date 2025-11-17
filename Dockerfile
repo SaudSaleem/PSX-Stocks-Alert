@@ -24,15 +24,16 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire application
+# Copy the entire application (includes app/data with JSON files)
 COPY . .
 
-# Create data directory if it doesn't exist
-RUN mkdir -p /app/app/data
+# Ensure data directory has correct permissions
+RUN chmod -R 755 /app/app/data
 
 # Expose port
 EXPOSE 8000
 
 # Run database migrations and start the application
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Railway provides PORT env var, default to 8000 for local development
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 

@@ -172,7 +172,12 @@ def scrape_psx():
         
         # Save all collected data to a JSON file
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        tickers_path = os.path.join(script_dir, "data", "latest_stock_price.json")
+        data_dir = os.path.join(script_dir, "data")
+        
+        # Ensure data directory exists
+        os.makedirs(data_dir, exist_ok=True)
+        
+        tickers_path = os.path.join(data_dir, "latest_stock_price.json")
         with open(tickers_path, "w") as f:
             json.dump(stock_data, f, indent=4)
           
