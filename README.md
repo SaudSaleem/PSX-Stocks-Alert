@@ -113,6 +113,42 @@ python -m app.init_db
 
 ---
 
+## Railway Deployment
+
+railway login
+
+railway link
+
+# Trigger a new deployment
+railway up
+
+# Or force redeploy current code
+railway redeploy
+
+# Via CLI
+railway restart
+
+# View current deployment status
+railway status
+
+# View logs
+railway logs
+
+# View logs live
+railway logs --follow
+
+# Redeploy
+railway up
+
+# Restart without rebuild
+railway restart
+
+# Stop Server
+railway stop
+
+# Get your domain
+railway domain
+
 ## 🎨 Frontend (optional)
 
 ```bash
@@ -122,6 +158,12 @@ $ npm run dev        # dev server → http://localhost:5173
 ```
 
 You can edit `frontend/src` to customise the dashboard or build static files via `npm run build`.
+
+## ./deploy
+
+## Access Frontend URL
+
+Hosting URL: https://stocks-alert-b03de.web.app
 
 ---
 
@@ -160,3 +202,4 @@ The script performs a full register-login-create-alert flow against a local serv
 ## 📜 License
 
 This project is released under the MIT License – see the `LICENSE` file for details.
+

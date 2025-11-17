@@ -1,7 +1,7 @@
 # Use Python 3.12 slim image as base
 FROM python:3.12-slim
 
-# Set working directory
+# Set working directory to the root of the application in the container
 WORKDIR /app
 
 # Install system dependencies for Chrome/Chromium and Selenium
@@ -18,22 +18,13 @@ ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 ENV PYTHONUNBUFFERED=1
 
-# Copy requirements file
+# Copy requirements file and install Python dependencies
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire application (includes app/data with JSON files)
+# Copy the entire application source code into the container's working directory (/app)
 COPY . .
 
-# Ensure data directory has correct permissions
-RUN chmod -R 755 /app/app/data
-
-# Expose port
-EXPOSE 8000
-
 # Run database migrations and start the application
-# Railway provides PORT env var, default to 8000 for local development
+# Use a relative path for your Python entry point: app.main:app
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
-

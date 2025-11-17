@@ -27,3 +27,7 @@ npm run dev
 ```sh
 npm run build
 ```
+
+### Access Frontend URL
+
+Hosting URL: https://stocks-alert-b03de.web.app

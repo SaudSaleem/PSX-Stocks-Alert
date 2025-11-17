@@ -1,7 +1,6 @@
 venv/
 .env
 app/__pycache__/
-app/data/
 __pycache__/
 
 # SQLite database files (we use PostgreSQL only)

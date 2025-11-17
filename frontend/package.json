@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated",
     "@primeuix/themes": "^1.0.0",
     "axios": "^1.8.1",
     "primeicons": "^7.0.0",
