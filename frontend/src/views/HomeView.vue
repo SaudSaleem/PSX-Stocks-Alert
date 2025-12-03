@@ -70,20 +70,7 @@
                 </span>
               </template>
             </Column>
-            <Column field="shares" header="Shares"></Column>
-            <Column field="sl" header="SL"></Column>
-            <Column field="tp1" header="TP1"></Column>
-            <Column field="tp2" header="TP2"></Column>
-            <Column field="tp3" header="TP3"></Column>
-            
-            <!-- Advanced Columns (shown when showComplexity is true) -->
-            <Column v-if="showComplexity" field="percentage_tp" header="TP %"></Column>
-            <Column v-if="showComplexity" field="percentage_sl" header="SL %"></Column>
-            <Column v-if="showComplexity" field="dip_buy" header="Dip Buy"></Column>
-            <Column v-if="showComplexity" field="box_break" header="Box Break"></Column>
-            <Column v-if="showComplexity" field="notes" header="Notes"></Column>
-            <Column v-if="showComplexity" field="total_alerts_sent" header="Total Alerts Sent"></Column>
-            <Column v-if="showComplexity" header="Status">
+            <Column header="Status">
               <template #body="slotProps">
                 <div class="status-indicators">
                   <span v-if="slotProps.data.is_sl_hit" class="status-badge sl-hit">SL Hit</span>
@@ -98,6 +85,19 @@
                 </div>
               </template>
             </Column>
+            <Column field="sl" header="SL"></Column>
+            <Column field="tp1" header="TP1"></Column>
+            <Column field="tp2" header="TP2"></Column>
+            <Column field="shares" header="Shares"></Column>
+            <Column field="tp3" header="TP3"></Column>
+            
+            <!-- Advanced Columns (shown when showComplexity is true) -->
+            <Column v-if="showComplexity" field="percentage_tp" header="TP %"></Column>
+            <Column v-if="showComplexity" field="percentage_sl" header="SL %"></Column>
+            <Column  field="dip_buy" header="Dip Buy"></Column>
+            <Column v-if="showComplexity" field="box_break" header="Box Break"></Column>
+            <Column v-if="showComplexity" field="notes" header="Notes"></Column>
+            <Column v-if="showComplexity" field="total_alerts_sent" header="Total Alerts Sent"></Column>
             <Column v-if="showComplexity" field="date_added" header="Created At">
               <template #body="slotProps">
                 {{ new Date(slotProps.data.date_added).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) }}
@@ -212,7 +212,10 @@
           <label for="notes">Notes</label>
           <InputText v-model="alert.notes" placeholder="Notes" class="flex-1" />
         </div>
-        
+        <div class="flex flex-col gap-2 flex-1">
+            <label for="dip_buy">Dip Buy</label>
+            <InputNumber v-model="alert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
+        </div>
         <!-- Advanced Fields (shown when showComplexity is true) -->
         <template v-if="showComplexity">
           <div class="flex flex-col gap-2 flex-1">
@@ -226,10 +229,6 @@
           <div class="flex flex-col gap-2 flex-1">
             <label for="box_break">Box Break</label>
             <InputNumber v-model="alert.box_break" placeholder="Box Break" class="flex-1" :minFractionDigits="2" />
-          </div>
-          <div class="flex flex-col gap-2 flex-1">
-            <label for="dip_buy">Dip Buy</label>
-            <InputNumber v-model="alert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
           </div>
           <div class="flex flex-col gap-2 flex-1">
             <label for="trailing_stop_percentage">Trailing Stop %</label>
@@ -284,7 +283,10 @@
           <label for="notes">Notes</label>
           <InputText v-model="selectedAlert.notes" placeholder="Notes" class="flex-1" />
         </div>
-        
+        <div class="flex flex-col gap-2 flex-1">
+            <label for="dip_buy">Dip Buy</label>
+            <InputNumber v-model="selectedAlert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
+          </div>
         <!-- Advanced Fields (shown when showComplexity is true) -->
         <template v-if="showComplexity">
           <div class="flex flex-col gap-2 flex-1">
@@ -298,10 +300,6 @@
           <div class="flex flex-col gap-2 flex-1">
             <label for="box_break">Box Break</label>
             <InputNumber v-model="selectedAlert.box_break" placeholder="Box Break" class="flex-1" :minFractionDigits="2" />
-          </div>
-          <div class="flex flex-col gap-2 flex-1">
-            <label for="dip_buy">Dip Buy</label>
-            <InputNumber v-model="selectedAlert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
           </div>
           <div class="flex flex-col gap-2 flex-1">
             <label for="trailing_stop_percentage">Trailing Stop %</label>

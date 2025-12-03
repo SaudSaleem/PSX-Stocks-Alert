@@ -57,7 +57,6 @@ def is_trading_hours():
     pakistan_tz = pytz.timezone('Asia/Karachi')
     now = datetime.now(pytz.UTC).astimezone(pakistan_tz)
     print(f"internet_connected:", internet_connected())
-    print(f"screen_is_on:", screen_is_on())
     # if not internet_connected():
     #     return False
     # if not screen_is_on():

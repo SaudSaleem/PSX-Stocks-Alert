@@ -49,6 +49,112 @@ def calculate_percentage_change(current_price, buy_price):
         print(f"Error in calculate_percentage_change: {e}")
         return None
 
+def check_proximity_alerts(alert, current_price, db, user):
+    """
+    Check if price is within 2% of SL, TP1, TP2, or TP3
+    Priority: SL > TP1 > TP2 > TP3
+    Only sends one proximity alert per check cycle
+    """
+    proximity_threshold = 2  # 2% threshold
+    return True
+    
+    # Track which proximity alerts have been sent using notes or a session variable
+    # For runtime, we'll use a simple approach checking each time
+    
+    # Priority 1: Check Stop Loss proximity
+    if alert.sl and not alert.is_sl_hit:
+        # For SL, check if price is going down towards it (within 2% above SL)
+        percentage_from_sl = ((current_price - alert.sl) / alert.sl) * 100
+        if 0 < percentage_from_sl <= proximity_threshold:
+            alert_data = {
+                'ticker': alert.ticker,
+                'current_price': current_price,
+                'alert_type': 'Stop Loss Proximity Warning',
+                'trigger_value': alert.sl,
+                'change_percentage': alert.change_percentage,
+                'notes': alert.notes,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            send_alert_notification(
+                db, user, "Stop Loss Proximity",
+                "Stop Loss Proximity Alert",
+                f"⚠️ IMPORTANT: Stock {alert.ticker} price is close to Stop Loss value of {alert.sl}. Current price: {current_price}. Please set limit order on exchange. Notes: {alert.notes}",
+                alert_data
+            )
+            return True  # Alert sent, don't check others in this cycle
+    
+    # Priority 2: Check TP1 proximity
+    if alert.tp1 and not alert.is_tp1_hit:
+        # For TP, check if price is going up towards it (within 2% below TP1)
+        percentage_from_tp1 = ((alert.tp1 - current_price) / alert.tp1) * 100
+        if 0 < percentage_from_tp1 <= proximity_threshold:
+            alert_data = {
+                'ticker': alert.ticker,
+                'current_price': current_price,
+                'alert_type': 'Take Profit 1 Proximity Warning',
+                'trigger_value': alert.tp1,
+                'change_percentage': alert.change_percentage,
+                'notes': alert.notes,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            send_alert_notification(
+                db, user, "Take Profit 1 Proximity",
+                "Take Profit 1 Proximity Alert",
+                f"🎯 Stock {alert.ticker} price is close to Take Profit 1 value of {alert.tp1}. Current price: {current_price}. Please set limit order on exchange. Notes: {alert.notes}",
+                alert_data
+            )
+            return True  # Alert sent, don't check others in this cycle
+    
+    # Priority 3: Check TP2 proximity
+    if alert.tp2 and not alert.is_tp2_hit:
+        # For TP2, check if price is going up towards it (within 2% below TP2)
+        percentage_from_tp2 = ((alert.tp2 - current_price) / alert.tp2) * 100
+        if 0 < percentage_from_tp2 <= proximity_threshold:
+            alert_data = {
+                'ticker': alert.ticker,
+                'current_price': current_price,
+                'alert_type': 'Take Profit 2 Proximity Warning',
+                'trigger_value': alert.tp2,
+                'change_percentage': alert.change_percentage,
+                'notes': alert.notes,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            send_alert_notification(
+                db, user, "Take Profit 2 Proximity",
+                "Take Profit 2 Proximity Alert",
+                f"🎯 Stock {alert.ticker} price is close to Take Profit 2 value of {alert.tp2}. Current price: {current_price}. Please set limit order on exchange. Notes: {alert.notes}",
+                alert_data
+            )
+            return True  # Alert sent, don't check others in this cycle
+    
+    # Priority 4: Check TP3 proximity
+    if alert.tp3 and not alert.is_tp3_hit:
+        # For TP3, check if price is going up towards it (within 2% below TP3)
+        percentage_from_tp3 = ((alert.tp3 - current_price) / alert.tp3) * 100
+        if 0 < percentage_from_tp3 <= proximity_threshold:
+            alert_data = {
+                'ticker': alert.ticker,
+                'current_price': current_price,
+                'alert_type': 'Take Profit 3 Proximity Warning',
+                'trigger_value': alert.tp3,
+                'change_percentage': alert.change_percentage,
+                'notes': alert.notes,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            send_alert_notification(
+                db, user, "Take Profit 3 Proximity",
+                "Take Profit 3 Proximity Alert",
+                f"🎯 Stock {alert.ticker} price is close to Take Profit 3 value of {alert.tp3}. Current price: {current_price}. Please set limit order on exchange. Notes: {alert.notes}",
+                alert_data
+            )
+            return True  # Alert sent, don't check others in this cycle
+    
+    return False  # No proximity alert sent
+
 # Function to fetch stock price
 # def fetch_stock_price(stock_name: str):
 #     try:
@@ -128,6 +234,7 @@ def send_alert_notification(db, user, alert_type, email_subject, email_body, ale
     else:
         print(f"WhatsApp notifications disabled for user {user.email}")
 
+# Permature send alert when price 1.5% near to sl or tp1 or tp2 
 # Function to check alerts
 def check_alerts():
     db = SessionLocal()
@@ -162,6 +269,11 @@ def check_alerts():
                 alert.change_percentage = calculate_percentage_change(current_price, alert.buy_price)
                 alert.current_price = current_price
                 db.commit()
+                
+                # Check proximity alerts first (1.5% near to SL, TP1, TP2, TP3)
+                # Priority: SL > TP1 > TP2 > TP3
+                proximity_alert_sent = check_proximity_alerts(alert, current_price, db, user)
+                
                 # Check trailing stop condition
                 if (alert.is_trailing_stop_hit == False and 
                     alert.trailing_stop_percentage and 
