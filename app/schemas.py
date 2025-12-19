@@ -23,10 +23,13 @@ class AlertCreate(BaseModel):
     box_break: Optional[float] = None
     percentage_box_break: Optional[float] = None
     dip_buy: Optional[float] = None
+    dip_buy_2: Optional[float] = None
     notes: Optional[str] = None
     buy_price: Optional[float] = None
     shares: Optional[int] = None
     trailing_stop_percentage: Optional[float] = None
+    broker: Optional[str] = 'KTrade'
+    position_status: Optional[str] = 'Not Bought'
 
 class AlertUpdate(BaseModel):
     ticker: str
@@ -39,6 +42,7 @@ class AlertUpdate(BaseModel):
     box_break: Optional[float] = None
     percentage_box_break: Optional[float] = None
     dip_buy: Optional[float] = None
+    dip_buy_2: Optional[float] = None
     notes: Optional[str] = None
     trailing_stop_percentage: Optional[float] = None
     highest_price: Optional[float] = None
@@ -53,7 +57,16 @@ class AlertUpdate(BaseModel):
     is_percentage_tp_hit: Optional[bool] = False
     is_trailing_stop_hit: Optional[bool] = False
     is_dip_buy_hit: Optional[bool] = False
+    is_dip_buy_2_hit: Optional[bool] = False
+    is_sl_proximity_sent: Optional[bool] = False
+    is_tp1_proximity_sent: Optional[bool] = False
+    is_tp2_proximity_sent: Optional[bool] = False
+    is_tp3_proximity_sent: Optional[bool] = False
+    is_dip_buy_proximity_sent: Optional[bool] = False
+    is_dip_buy_2_proximity_sent: Optional[bool] = False
     total_alerts_sent: Optional[int] = 0
+    broker: Optional[str] = None
+    position_status: Optional[str] = None
 
 class InvestmentCreate(BaseModel):
     amount: float

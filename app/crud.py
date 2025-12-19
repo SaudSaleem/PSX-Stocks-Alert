@@ -82,12 +82,16 @@ def get_investments_by_user_id(db: Session, user_id: int):
 
 # Calculate portfolio value and P&L
 def calculate_portfolio_pnl(db: Session, user_id: int):
+    """
+    Returns portfolio P&L based on manually saved values.
+    No automatic calculations - uses user's manually entered current_value.
+    Only calculates invested_in_shares based on alerts with shares.
+    """
     # Get all alerts for the user
     alerts = db.query(models.Alert).filter(models.Alert.user_id == user_id).all()
     
     # Calculate amount invested in shares (cost basis)
     total_invested_in_shares = 0
-    current_value_of_shares = 0
     
     for alert in alerts:
         # Only consider alerts where shares have actually been bought
@@ -95,37 +99,24 @@ def calculate_portfolio_pnl(db: Session, user_id: int):
         if alert.shares and alert.shares > 0 and alert.buy_price and alert.buy_price > 0:
             # Calculate cost basis (amount invested)
             total_invested_in_shares += alert.shares * alert.buy_price
-            
-            # Calculate current value of shares
-            # Use current_price if available, otherwise use buy_price
-            price_to_use = alert.current_price if alert.current_price else alert.buy_price
-            current_value_of_shares += alert.shares * price_to_use
     
-    # Get total investment
+    # Get user with manually saved values
     user = db.query(models.User).filter(models.User.id == user_id).first()
     total_investment = user.total_investment if user else 0
+    current_value = user.current_value if user else 0
     
-    # Calculate cash available
+    # Calculate cash available (total investment minus what's invested in shares)
     cash_available = total_investment - total_invested_in_shares
     
-    # Calculate total current portfolio value (cash + shares)
-    total_current_value = cash_available + current_value_of_shares
-    
-    # Update user's current value
-    if user:
-        user.current_value = total_current_value
-        db.commit()
-    
-    # Calculate P&L
-    pnl = total_current_value - total_investment
+    # Calculate P&L based on manually saved current_value
+    pnl = current_value - total_investment
     pnl_percentage = (pnl / total_investment * 100) if total_investment > 0 else 0
     
     return {
         "total_investment": total_investment,
         "invested_in_shares": total_invested_in_shares,
         "cash_available": cash_available,
-        "current_value_of_shares": current_value_of_shares,
-        "current_value": total_current_value,
+        "current_value": current_value,
         "pnl": pnl,
         "pnl_percentage": pnl_percentage
     }

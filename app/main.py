@@ -488,6 +488,31 @@ async def get_notification_preferences_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
+# Current Value Update Schema
+class CurrentValueUpdate(BaseModel):
+    current_value: float
+
+# Update Current Value Endpoint
+@app.put("/user/current-value")
+async def update_current_value_endpoint(
+    value_update: CurrentValueUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    try:
+        # Update the user's current_value
+        current_user.current_value = value_update.current_value
+        db.commit()
+        db.refresh(current_user)
+        
+        return {
+            "detail": "Current value updated successfully",
+            "current_value": current_user.current_value
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
 # WhatsApp Test Schema
 class WhatsAppTestRequest(BaseModel):
     phone_number: str

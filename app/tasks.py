@@ -9,6 +9,7 @@ from datetime import date, timedelta, datetime
 from dotenv import load_dotenv
 import os
 import json
+import time
 import traceback
 load_dotenv()
 
@@ -51,18 +52,18 @@ def calculate_percentage_change(current_price, buy_price):
 
 def check_proximity_alerts(alert, current_price, db, user):
     """
-    Check if price is within 2% of SL, TP1, TP2, or TP3
-    Priority: SL > TP1 > TP2 > TP3
+    Check if price is within 2% of SL, TP1, TP2, TP3, Dip Buy 1, or Dip Buy 2
+    Priority: SL > Dip Buy 1 > Dip Buy 2 > TP1 > TP2 > TP3
     Only sends one proximity alert per check cycle
     """
     proximity_threshold = 2  # 2% threshold
-    return True
+
     
-    # Track which proximity alerts have been sent using notes or a session variable
-    # For runtime, we'll use a simple approach checking each time
+    # Track which proximity alerts have been sent using database flags
+    # This prevents sending the same proximity alert repeatedly
     
     # Priority 1: Check Stop Loss proximity
-    if alert.sl and not alert.is_sl_hit:
+    if alert.sl and not alert.is_sl_hit and not alert.is_sl_proximity_sent:
         # For SL, check if price is going down towards it (within 2% above SL)
         percentage_from_sl = ((current_price - alert.sl) / alert.sl) * 100
         if 0 < percentage_from_sl <= proximity_threshold:
@@ -82,10 +83,73 @@ def check_proximity_alerts(alert, current_price, db, user):
                 f"⚠️ IMPORTANT: Stock {alert.ticker} price is close to Stop Loss value of {alert.sl}. Current price: {current_price}. Please set limit order on exchange. Notes: {alert.notes}",
                 alert_data
             )
+            
+            # Mark proximity alert as sent and update database
+            alert.is_sl_proximity_sent = True
+            alert.total_alerts_sent = alert.total_alerts_sent + 1
+            db.commit()
             return True  # Alert sent, don't check others in this cycle
     
-    # Priority 2: Check TP1 proximity
-    if alert.tp1 and not alert.is_tp1_hit:
+    # Priority 2: Check Dip Buy 1 proximity
+    if alert.dip_buy and not alert.is_dip_buy_hit and not alert.is_dip_buy_proximity_sent:
+        # For Dip Buy 1, check if price is going down towards it (within 2% above Dip Buy)
+        percentage_from_dip_buy = ((current_price - alert.dip_buy) / alert.dip_buy) * 100
+        print(f"Percentage from Dip Buy 1: {percentage_from_dip_buy}, current price: {current_price}, dip buy: {alert.dip_buy}, proximity threshold: {proximity_threshold}, 0 < percentage_from_dip_buy <= proximity_threshold, {0 < percentage_from_dip_buy <= proximity_threshold}")
+        if 0 < percentage_from_dip_buy <= proximity_threshold:
+            print(f"Dip Buy 1 proximity alert sent for {alert.ticker}")
+            alert_data = {
+                'ticker': alert.ticker,
+                'current_price': current_price,
+                'alert_type': 'Dip Buy 1 Proximity Warning',
+                'trigger_value': alert.dip_buy,
+                'change_percentage': alert.change_percentage,
+                'notes': alert.notes,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            send_alert_notification(
+                db, user, "Dip Buy 1 Proximity",
+                "Dip Buy 1 Proximity Alert",
+                f"💰 OPPORTUNITY: Stock {alert.ticker} price is close to Dip Buy 1 value of {alert.dip_buy}. Current price: {current_price}. Consider setting limit order on exchange. Notes: {alert.notes}",
+                alert_data
+            )
+            
+            # Mark proximity alert as sent and update database
+            alert.is_dip_buy_proximity_sent = True
+            alert.total_alerts_sent = alert.total_alerts_sent + 1
+            db.commit()
+            return True  # Alert sent, don't check others in this cycle
+    
+    # Priority 3: Check Dip Buy 2 proximity
+    if alert.dip_buy_2 and not alert.is_dip_buy_2_hit and not alert.is_dip_buy_2_proximity_sent:
+        # For Dip Buy 2, check if price is going down towards it (within 2% above Dip Buy 2)
+        percentage_from_dip_buy_2 = ((current_price - alert.dip_buy_2) / alert.dip_buy_2) * 100
+        if 0 < percentage_from_dip_buy_2 <= proximity_threshold:
+            alert_data = {
+                'ticker': alert.ticker,
+                'current_price': current_price,
+                'alert_type': 'Dip Buy 2 Proximity Warning',
+                'trigger_value': alert.dip_buy_2,
+                'change_percentage': alert.change_percentage,
+                'notes': alert.notes,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            send_alert_notification(
+                db, user, "Dip Buy 2 Proximity",
+                "Dip Buy 2 Proximity Alert",
+                f"💰 OPPORTUNITY: Stock {alert.ticker} price is close to Dip Buy 2 value of {alert.dip_buy_2}. Current price: {current_price}. Consider setting limit order on exchange. Notes: {alert.notes}",
+                alert_data
+            )
+            
+            # Mark proximity alert as sent and update database
+            alert.is_dip_buy_2_proximity_sent = True
+            alert.total_alerts_sent = alert.total_alerts_sent + 1
+            db.commit()
+            return True  # Alert sent, don't check others in this cycle
+    
+    # Priority 4: Check TP1 proximity
+    if alert.tp1 and not alert.is_tp1_hit and not alert.is_tp1_proximity_sent:
         # For TP, check if price is going up towards it (within 2% below TP1)
         percentage_from_tp1 = ((alert.tp1 - current_price) / alert.tp1) * 100
         if 0 < percentage_from_tp1 <= proximity_threshold:
@@ -105,10 +169,15 @@ def check_proximity_alerts(alert, current_price, db, user):
                 f"🎯 Stock {alert.ticker} price is close to Take Profit 1 value of {alert.tp1}. Current price: {current_price}. Please set limit order on exchange. Notes: {alert.notes}",
                 alert_data
             )
+            
+            # Mark proximity alert as sent and update database
+            alert.is_tp1_proximity_sent = True
+            alert.total_alerts_sent = alert.total_alerts_sent + 1
+            db.commit()
             return True  # Alert sent, don't check others in this cycle
     
-    # Priority 3: Check TP2 proximity
-    if alert.tp2 and not alert.is_tp2_hit:
+    # Priority 5: Check TP2 proximity
+    if alert.tp2 and not alert.is_tp2_hit and not alert.is_tp2_proximity_sent:
         # For TP2, check if price is going up towards it (within 2% below TP2)
         percentage_from_tp2 = ((alert.tp2 - current_price) / alert.tp2) * 100
         if 0 < percentage_from_tp2 <= proximity_threshold:
@@ -128,10 +197,15 @@ def check_proximity_alerts(alert, current_price, db, user):
                 f"🎯 Stock {alert.ticker} price is close to Take Profit 2 value of {alert.tp2}. Current price: {current_price}. Please set limit order on exchange. Notes: {alert.notes}",
                 alert_data
             )
+            
+            # Mark proximity alert as sent and update database
+            alert.is_tp2_proximity_sent = True
+            alert.total_alerts_sent = alert.total_alerts_sent + 1
+            db.commit()
             return True  # Alert sent, don't check others in this cycle
     
-    # Priority 4: Check TP3 proximity
-    if alert.tp3 and not alert.is_tp3_hit:
+    # Priority 6: Check TP3 proximity
+    if alert.tp3 and not alert.is_tp3_hit and not alert.is_tp3_proximity_sent:
         # For TP3, check if price is going up towards it (within 2% below TP3)
         percentage_from_tp3 = ((alert.tp3 - current_price) / alert.tp3) * 100
         if 0 < percentage_from_tp3 <= proximity_threshold:
@@ -151,6 +225,11 @@ def check_proximity_alerts(alert, current_price, db, user):
                 f"🎯 Stock {alert.ticker} price is close to Take Profit 3 value of {alert.tp3}. Current price: {current_price}. Please set limit order on exchange. Notes: {alert.notes}",
                 alert_data
             )
+            
+            # Mark proximity alert as sent and update database
+            alert.is_tp3_proximity_sent = True
+            alert.total_alerts_sent = alert.total_alerts_sent + 1
+            db.commit()
             return True  # Alert sent, don't check others in this cycle
     
     return False  # No proximity alert sent
@@ -180,7 +259,15 @@ def fetch_stock_price(stock_name: str):
         data = json.load(f)
     for item in data:
         if item['symbol'] == stock_name:
-            return item['current']
+            return {
+                'symbol': item['symbol'],
+                'name': item['name'],
+                'ldcp': item['ldcp'],
+                'open': item['open'],
+                'high': item['high'],
+                'low': item['low'],
+                'current': item['current']
+            }
     return None
 
 def send_alert_notification(db, user, alert_type, email_subject, email_body, alert_data):
@@ -195,6 +282,9 @@ def send_alert_notification(db, user, alert_type, email_subject, email_body, ale
         email_body: Body for email
         alert_data: Dictionary with alert information for WhatsApp formatting
     """
+    wait_time = 20
+    time.sleep(wait_time)
+    print(f"Waiting for {wait_time} seconds before sending alert notification...")
     # Send emails only if email notifications are enabled
     if user.email_notifications_enabled:
         try:
@@ -234,7 +324,6 @@ def send_alert_notification(db, user, alert_type, email_subject, email_body, ale
     else:
         print(f"WhatsApp notifications disabled for user {user.email}")
 
-# Permature send alert when price 1.5% near to sl or tp1 or tp2 
 # Function to check alerts
 def check_alerts():
     db = SessionLocal()
@@ -242,39 +331,47 @@ def check_alerts():
         users = db.query(models.User).all()
         for user in users:
             alerts = get_alerts_by_user_id(db, user.id)
-            print('in check_alerts method: alerts', alerts)
+            # print('in check_alerts method: alerts', alerts)
             for alert in alerts:
-                # Fetch stock price first
-                stock_price = fetch_stock_price(alert.ticker)
+                # 1. Fetch stock data
+                stock_data = fetch_stock_price(alert.ticker)
                 
-                # Check if stock price is None or invalid before converting to float
-                if stock_price is None:
+                if stock_data is None:
                     print(f'Stock price for {alert.ticker} not found, skipping...')
                     continue
+
+                stock_price = stock_data['current']
+                stock_today_high = stock_data['high']
+                stock_today_low = stock_data['low']
+                # stock_today_open = stock_data['open'] 
                 
                 try:
                     current_price = float(stock_price)
+                    today_high = float(stock_today_high)
+                    today_low = float(stock_today_low)
                 except (ValueError, TypeError) as e:
                     print(f'Error converting stock price for {alert.ticker}: {e}, skipping...')
                     continue
 
-                print('current price of', alert.ticker, 'is: ', stock_price)
+                print(f'Checking {alert.ticker}: Current: {current_price}, High: {today_high}, Low: {today_low}')
                 
-                # Update highest price for trailing stop if needed
+                # 2. Update highest price for trailing stop (Only uses current price to avoid false triggering on old highs)
                 if alert.trailing_stop_percentage and (alert.highest_price is None or current_price > alert.highest_price):
                     alert.highest_price = current_price
                     db.commit()
                 
-                # Check alert conditions
+                # 3. Update percentage tracking
                 alert.change_percentage = calculate_percentage_change(current_price, alert.buy_price)
                 alert.current_price = current_price
                 db.commit()
                 
-                # Check proximity alerts first (1.5% near to SL, TP1, TP2, TP3)
-                # Priority: SL > TP1 > TP2 > TP3
-                proximity_alert_sent = check_proximity_alerts(alert, current_price, db, user)
+                # 4. Check proximity alerts (1.5% - 2% near to SL, TP1, TP2, TP3)
+                # We check this first, but if a hard alert is hit below, the hard alert takes precedence in logic flow usually
+                check_proximity_alerts(alert, current_price, db, user)
                 
-                # Check trailing stop condition
+                # --- ALERT CONDITION CHECKS ---
+
+                # A. Check Trailing Stop (Strictly uses Current Price)
                 if (alert.is_trailing_stop_hit == False and 
                     alert.trailing_stop_percentage and 
                     alert.highest_price and 
@@ -303,12 +400,12 @@ def check_alerts():
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
                 
-                # Check dip buy condition
-                elif alert.is_dip_buy_hit == False and alert.dip_buy and current_price <= alert.dip_buy:
+                # B. Check Dip Buy 1 (Uses Day Low - if it touched, we want to know)
+                elif alert.is_dip_buy_hit == False and alert.dip_buy and today_low <= alert.dip_buy:
                     alert_data = {
                         'ticker': alert.ticker,
                         'current_price': current_price,
-                        'alert_type': 'Dip Buy',
+                        'alert_type': 'Dip Buy 1',
                         'trigger_value': alert.dip_buy,
                         'change_percentage': alert.change_percentage,
                         'notes': alert.notes,
@@ -316,9 +413,9 @@ def check_alerts():
                     }
                     
                     send_alert_notification(
-                        db, user, "Dip Buy",
-                        "Dip Buy Alert",
-                        f"The stock {alert.ticker} has reached or fallen below your dip buy price of {alert.dip_buy}. Current price: {current_price}, Notes: {alert.notes}",
+                        db, user, "Dip Buy 1",
+                        "Dip Buy 1 Alert",
+                        f"The stock {alert.ticker} reached your dip buy 1 price of {alert.dip_buy} (Day Low: {today_low}). Current price: {current_price}, Notes: {alert.notes}",
                         alert_data
                     )
                     
@@ -326,8 +423,39 @@ def check_alerts():
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
                 
-                # Existing alert conditions
-                elif alert.is_sl_hit == False and alert.sl and current_price <= alert.sl:
+                # C. Check Dip Buy 2 (Uses Day Low)
+                elif alert.is_dip_buy_2_hit == False and alert.dip_buy_2 and today_low <= alert.dip_buy_2:
+                    alert_data = {
+                        'ticker': alert.ticker,
+                        'current_price': current_price,
+                        'alert_type': 'Dip Buy 2',
+                        'trigger_value': alert.dip_buy_2,
+                        'change_percentage': alert.change_percentage,
+                        'notes': alert.notes,
+                        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    
+                    send_alert_notification(
+                        db, user, "Dip Buy 2",
+                        "Dip Buy 2 Alert",
+                        f"The stock {alert.ticker} reached your dip buy 2 price of {alert.dip_buy_2} (Day Low: {today_low}). Current price: {current_price}, Notes: {alert.notes}",
+                        alert_data
+                    )
+                    
+                    alert.is_dip_buy_2_hit = True
+                    alert.total_alerts_sent = alert.total_alerts_sent + 1
+                    db.commit()
+                
+                # D. Check Stop Loss (Uses Day Low)
+                elif alert.is_sl_hit == False and alert.sl and today_low <= alert.sl:
+                    # Distinguish between currently below SL vs. "Wick" touched SL
+                    if current_price <= alert.sl:
+                        subject = "Stop Loss Alert (EXECUTED)"
+                        body_prefix = f"URGENT: The stock {alert.ticker} is trading BELOW your stop loss price: {alert.sl}."
+                    else:
+                        subject = "Stop Loss Alert (TOUCHED)"
+                        body_prefix = f"WARNING: The stock {alert.ticker} touched your stop loss price of {alert.sl} (Day Low: {today_low}) but recovered to {current_price}."
+
                     alert_data = {
                         'ticker': alert.ticker,
                         'current_price': current_price,
@@ -340,15 +468,17 @@ def check_alerts():
                     
                     send_alert_notification(
                         db, user, "Stop Loss",
-                        "Stop Loss Alert",
-                        f"The stock {alert.ticker} has hit the stop loss price: {alert.sl}. Current price: {current_price}, Notes: {alert.notes}",
+                        subject,
+                        f"{body_prefix} Notes: {alert.notes}",
                         alert_data
                     )
                     
                     alert.is_sl_hit = True
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
-                elif alert.is_tp1_hit == False and alert.tp1 and current_price >= alert.tp1:
+
+                # E. Check TP1 (Uses Day High)
+                elif alert.is_tp1_hit == False and alert.tp1 and today_high >= alert.tp1:
                     alert_data = {
                         'ticker': alert.ticker,
                         'current_price': current_price,
@@ -362,7 +492,7 @@ def check_alerts():
                     send_alert_notification(
                         db, user, "Take Profit",
                         "Take Profit Alert",
-                        f"The stock {alert.ticker} has hit the take profit level 1: {alert.tp1}. Stop loss price is set to buy price {alert.buy_price}. Current price: {current_price}, Notes: {alert.notes}",
+                        f"The stock {alert.ticker} hit take profit level 1: {alert.tp1} (Day High: {today_high}). SL updated to buy price {alert.buy_price}. Current price: {current_price}, Notes: {alert.notes}",
                         alert_data
                     )
                     
@@ -371,7 +501,9 @@ def check_alerts():
                     alert.is_tp1_hit = True
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
-                elif alert.is_tp2_hit == False and alert.tp2 and current_price >= alert.tp2:
+
+                # F. Check TP2 (Uses Day High)
+                elif alert.is_tp2_hit == False and alert.tp2 and today_high >= alert.tp2:
                     alert_data = {
                         'ticker': alert.ticker,
                         'current_price': current_price,
@@ -385,7 +517,7 @@ def check_alerts():
                     send_alert_notification(
                         db, user, "Take Profit",
                         "Take Profit Alert",
-                        f"The stock {alert.ticker} has hit the take profit level 2: {alert.tp2}. Stop loss price is set to take profit level 1 {alert.tp1}. Current price: {current_price}, Notes: {alert.notes}",
+                        f"The stock {alert.ticker} hit take profit level 2: {alert.tp2} (Day High: {today_high}). SL updated to TP1 {alert.tp1}. Current price: {current_price}, Notes: {alert.notes}",
                         alert_data
                     )
                     
@@ -394,7 +526,9 @@ def check_alerts():
                     alert.is_tp2_hit = True
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
-                elif alert.is_tp3_hit == False and alert.tp3 and current_price >= alert.tp3:
+
+                # G. Check TP3 (Uses Day High)
+                elif alert.is_tp3_hit == False and alert.tp3 and today_high >= alert.tp3:
                     alert_data = {
                         'ticker': alert.ticker,
                         'current_price': current_price,
@@ -408,7 +542,7 @@ def check_alerts():
                     send_alert_notification(
                         db, user, "Take Profit",
                         "Take Profit Alert",
-                        f"The stock {alert.ticker} has hit the take profit level 3: {alert.tp3}. Stop loss price is set to take profit level 2 {alert.tp2}. Current price: {current_price}, Notes: {alert.notes}",
+                        f"The stock {alert.ticker} hit take profit level 3: {alert.tp3} (Day High: {today_high}). SL updated to TP2 {alert.tp2}. Current price: {current_price}, Notes: {alert.notes}",
                         alert_data
                     )
                     
@@ -418,7 +552,8 @@ def check_alerts():
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
                     
-                elif alert.is_box_break_hit == False and alert.box_break and current_price >= alert.box_break:
+                # H. Check Box Break (Uses Day High)
+                elif alert.is_box_break_hit == False and alert.box_break and today_high >= alert.box_break:
                     alert_data = {
                         'ticker': alert.ticker,
                         'current_price': current_price,
@@ -432,7 +567,7 @@ def check_alerts():
                     send_alert_notification(
                         db, user, "Box Break",
                         "Box Break Alert",
-                        f"The stock {alert.ticker} has hit the box break price {alert.box_break}. Current price: {current_price}, Notes: {alert.notes}",
+                        f"The stock {alert.ticker} hit the box break price {alert.box_break} (Day High: {today_high}). Current price: {current_price}, Notes: {alert.notes}",
                         alert_data
                     )
                     
@@ -440,6 +575,7 @@ def check_alerts():
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
                     
+                # I. Check Percentage TP
                 elif alert.is_percentage_tp_hit == False and alert.percentage_tp and alert.change_percentage >= alert.percentage_tp:
                     alert_data = {
                         'ticker': alert.ticker,
@@ -462,6 +598,7 @@ def check_alerts():
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
                     
+                # J. Check Percentage SL
                 elif alert.is_percentage_sl_hit == False and alert.percentage_sl and alert.change_percentage <= -abs(alert.percentage_sl):
                     alert_data = {
                         'ticker': alert.ticker,
@@ -483,7 +620,7 @@ def check_alerts():
                     alert.is_percentage_sl_hit = True
                     alert.total_alerts_sent = alert.total_alerts_sent + 1
                     db.commit()
-                # Add more conditions for tp2, tp3, and box_break
+                    
     except Exception as e:
         db.rollback()
         print(f"Error in check_alerts: {e}")

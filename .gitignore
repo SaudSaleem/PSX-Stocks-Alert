@@ -8,3 +8,7 @@ __pycache__/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Google Auth
+token.json
+credentials.json

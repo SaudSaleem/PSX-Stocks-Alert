@@ -34,7 +34,8 @@ class Alert(Base):
     highest_price = Column(Float, nullable=True)
     box_break = Column(Float, nullable=True)
     percentage_box_break = Column(Float, nullable=True)
-    dip_buy = Column(Float, nullable=True)
+    dip_buy = Column(Float, nullable=True)  # This will be Dip Buy 1
+    dip_buy_2 = Column(Float, nullable=True)
     buy_price = Column(Float, nullable=True)
     shares = Column(Integer, nullable=True)
     current_price = Column(Float, nullable=True)
@@ -48,8 +49,17 @@ class Alert(Base):
     is_percentage_tp_hit = Column(Boolean, default=False)
     is_trailing_stop_hit = Column(Boolean, default=False)
     is_dip_buy_hit = Column(Boolean, default=False)
+    is_dip_buy_2_hit = Column(Boolean, default=False)
+    is_sl_proximity_sent = Column(Boolean, default=False)
+    is_tp1_proximity_sent = Column(Boolean, default=False)
+    is_tp2_proximity_sent = Column(Boolean, default=False)
+    is_tp3_proximity_sent = Column(Boolean, default=False)
+    is_dip_buy_proximity_sent = Column(Boolean, default=False)
+    is_dip_buy_2_proximity_sent = Column(Boolean, default=False)
     total_alerts_sent = Column(Integer, default=0)
     notes = Column(String, nullable=True)
+    broker = Column(String, default='KTrade', nullable=True)  # Comma-separated values: KTrade, SFEL
+    position_status = Column(String, default='Not Bought', nullable=True)  # Comma-separated position status
     date_added = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     date_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

@@ -78,7 +78,8 @@
                   <span v-if="slotProps.data.is_tp2_hit" class="status-badge tp-hit">TP2 Hit</span>
                   <span v-if="slotProps.data.is_tp3_hit" class="status-badge tp-hit">TP3 Hit</span>
                   <span v-if="slotProps.data.is_box_break_hit" class="status-badge box-break">Box Break</span>
-                  <span v-if="slotProps.data.is_dip_buy_hit" class="status-badge dip-buy">Dip Buy</span>
+                  <span v-if="slotProps.data.is_dip_buy_hit" class="status-badge dip-buy">Dip Buy 1</span>
+                  <span v-if="slotProps.data.is_dip_buy_2_hit" class="status-badge dip-buy">Dip Buy 2</span>
                   <span v-if="slotProps.data.is_percentage_sl_hit" class="status-badge sl-hit">Percentage SL Hit</span>
                   <span v-if="slotProps.data.is_percentage_tp_hit" class="status-badge tp-hit">Percentage TP Hit</span>
                   <span v-if="slotProps.data.is_trailing_stop_hit" class="status-badge tp-hit">Trailing Stop Hit</span>
@@ -90,11 +91,37 @@
             <Column field="tp2" header="TP2"></Column>
             <Column field="shares" header="Shares"></Column>
             <Column field="tp3" header="TP3"></Column>
+            <Column field="broker" header="Broker">
+              <template #body="slotProps">
+                <span v-if="slotProps.data.broker">{{ slotProps.data.broker }}</span>
+                <span v-else class="text-gray-400">-</span>
+              </template>
+            </Column>
+            <Column field="position_status" header="Position">
+              <template #body="slotProps">
+                <div v-if="slotProps.data.position_status" class="position-tags">
+                  <span 
+                    v-for="status in slotProps.data.position_status.split(',').map(s => s.trim())" 
+                    :key="status"
+                    class="position-tag"
+                    :class="{
+                      'position-bought': status.includes('Bought') || status.includes('%') && !status.includes('sold'),
+                      'position-not-bought': status === 'Not Bought',
+                      'position-sold': status.includes('sold') || status.includes('Sold')
+                    }"
+                  >
+                    {{ status }}
+                  </span>
+                </div>
+                <span v-else class="text-gray-400">-</span>
+              </template>
+            </Column>
             
             <!-- Advanced Columns (shown when showComplexity is true) -->
             <Column v-if="showComplexity" field="percentage_tp" header="TP %"></Column>
             <Column v-if="showComplexity" field="percentage_sl" header="SL %"></Column>
-            <Column  field="dip_buy" header="Dip Buy"></Column>
+            <Column field="dip_buy" header="Dip Buy 1"></Column>
+            <Column field="dip_buy_2" header="Dip Buy 2"></Column>
             <Column v-if="showComplexity" field="box_break" header="Box Break"></Column>
             <Column v-if="showComplexity" field="notes" header="Notes"></Column>
             <Column v-if="showComplexity" field="total_alerts_sent" header="Total Alerts Sent"></Column>
@@ -112,7 +139,7 @@
             <!-- Action Columns (always shown) -->
             <Column field="update" header="Update">
               <template #body="slotProps">
-                <Button @click="showUpdateAlertDialog = true; selectedAlert = {...slotProps.data}" label="Update" severity="warning" />
+                <Button @click="openUpdateDialog(slotProps.data)" label="Update" severity="warning" />
               </template>
             </Column>
             <Column field="delete" header="Delete">
@@ -171,7 +198,9 @@
           </div>
         </div>
       </div>
-      <div class="actions">
+      <div class="actions flex flex-col gap-3">
+        <Button label="Download Alerts JSON" @click="downloadAlertsJSON" severity="secondary" icon="pi pi-download" />
+        <Button label="Update Current Value" @click="showUpdateCurrentValueDialog = true" severity="info" icon="pi pi-pencil" />
         <Button label="Logout" @click="logout" />
       </div>
     </Drawer>
@@ -213,8 +242,28 @@
           <InputText v-model="alert.notes" placeholder="Notes" class="flex-1" />
         </div>
         <div class="flex flex-col gap-2 flex-1">
-            <label for="dip_buy">Dip Buy</label>
-            <InputNumber v-model="alert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
+            <label for="dip_buy">Dip Buy 1</label>
+            <InputNumber v-model="alert.dip_buy" placeholder="Dip Buy 1" class="flex-1" :minFractionDigits="2" />
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+            <label for="dip_buy_2">Dip Buy 2</label>
+            <InputNumber v-model="alert.dip_buy_2" placeholder="Dip Buy 2" class="flex-1" :minFractionDigits="2" />
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+          <label for="broker">Broker</label>
+          <div v-if="alert.broker && alert.broker.length > 0" class="current-values mb-2">
+            <small class="text-gray-600">Selected: </small>
+            <span v-for="broker in alert.broker" :key="broker" class="value-tag">{{ broker }}</span>
+          </div>
+          <Select v-model="alert.broker" :options="brokerOptions" placeholder="Select Broker(s)" class="flex-1" multiple />
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+          <label for="position_status">Position Status</label>
+          <div v-if="alert.position_status && alert.position_status.length > 0" class="current-values mb-2">
+            <small class="text-gray-600">Selected: </small>
+            <span v-for="status in alert.position_status" :key="status" class="value-tag">{{ status }}</span>
+          </div>
+          <Select v-model="alert.position_status" :options="positionStatusOptions" placeholder="Select Status" class="flex-1" multiple />
         </div>
         <!-- Advanced Fields (shown when showComplexity is true) -->
         <template v-if="showComplexity">
@@ -284,9 +333,29 @@
           <InputText v-model="selectedAlert.notes" placeholder="Notes" class="flex-1" />
         </div>
         <div class="flex flex-col gap-2 flex-1">
-            <label for="dip_buy">Dip Buy</label>
-            <InputNumber v-model="selectedAlert.dip_buy" placeholder="Dip Buy" class="flex-1" :minFractionDigits="2" />
+            <label for="dip_buy">Dip Buy 1</label>
+            <InputNumber v-model="selectedAlert.dip_buy" placeholder="Dip Buy 1" class="flex-1" :minFractionDigits="2" />
           </div>
+        <div class="flex flex-col gap-2 flex-1">
+            <label for="dip_buy_2">Dip Buy 2</label>
+            <InputNumber v-model="selectedAlert.dip_buy_2" placeholder="Dip Buy 2" class="flex-1" :minFractionDigits="2" />
+          </div>
+        <div class="flex flex-col gap-2 flex-1">
+          <label for="broker">Broker</label>
+          <div v-if="selectedAlert.broker && selectedAlert.broker.length > 0" class="current-values mb-2">
+            <small class="text-gray-600">Current: </small>
+            <span v-for="broker in selectedAlert.broker" :key="broker" class="value-tag">{{ broker }}</span>
+          </div>
+          <Select v-model="selectedAlert.broker" :options="brokerOptions" placeholder="Select Broker(s)" class="flex-1" multiple />
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+          <label for="position_status">Position Status</label>
+          <div v-if="selectedAlert.position_status && selectedAlert.position_status.length > 0" class="current-values mb-2">
+            <small class="text-gray-600">Current: </small>
+            <span v-for="status in selectedAlert.position_status" :key="status" class="value-tag">{{ status }}</span>
+          </div>
+          <Select v-model="selectedAlert.position_status" :options="positionStatusOptions" placeholder="Select Status" class="flex-1" multiple />
+        </div>
         <!-- Advanced Fields (shown when showComplexity is true) -->
         <template v-if="showComplexity">
           <div class="flex flex-col gap-2 flex-1">
@@ -475,6 +544,24 @@
         </DataTable>
       </div>
     </Dialog>
+    <Dialog v-model:visible="showUpdateCurrentValueDialog" :header="`Update Current Investment Value`" :modal="true" style="width: 40vw;">
+      <div class="update-current-value-form flex flex-col gap-4">
+        <div class="info-box">
+          <p class="text-sm">
+            📊 <strong>Manual Update:</strong> Set the current value of your portfolio manually.<br/>
+            💡 This will override any automatic calculations.
+          </p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="manual_current_value">Current Portfolio Value (PKR)</label>
+          <InputNumber v-model="manualCurrentValue" mode="currency" currency="PKR" placeholder="Current Value" class="flex-1" :minFractionDigits="2" />
+        </div>
+        <div class="flex justify-center gap-3 mt-3">
+          <Button @click="updateCurrentValue" label="Save Current Value" icon="pi pi-save" />
+          <Button @click="showUpdateCurrentValueDialog = false" label="Cancel" severity="secondary" outlined />
+        </div>
+      </div>
+    </Dialog>
     <Dialog v-model:visible="showTestWhatsAppDialog" :header="`Test WhatsApp Alert`" :modal="true" style="width: 50vw;">
       <div class="test-whatsapp-section">
         <div class="flex flex-col gap-4">
@@ -576,7 +663,9 @@ export default {
       showPhoneNumbersDialog: false,
       showEmailRecipientsDialog: false,
       showTestWhatsAppDialog: false,
+      showUpdateCurrentValueDialog: false,
       alerts: [],
+      manualCurrentValue: null,
       tickers: [],
       investments: [],
       phoneNumbers: [],
@@ -615,6 +704,8 @@ export default {
         loading: false,
         result: null
       },
+      brokerOptions: ['KTrade', 'SFEL'],
+      positionStatusOptions: ['25%', '50%', '70%', '75%', '100% Bought', 'Not Bought', 'sold', '20% sold', '50% sold', '70% sold', '100% Sold'],
       alert: {
         ticker: "",
         buy_price: 0,
@@ -623,12 +714,15 @@ export default {
         tp3: null,
         box_break: null,
         dip_buy: null,
+        dip_buy_2: null,
         sl: null,
         shares: null,
         percentage_tp: null,
         percentage_sl: null,
         notes: '',
-        trailing_stop_percentage: null
+        trailing_stop_percentage: null,
+        broker: ['KTrade'],
+        position_status: ['Not Bought']
       },
       calcShares: {
         ticker: '',
@@ -695,7 +789,8 @@ export default {
       try {
         const user_id = this.user.id;
         const response = await axios.get(`/alerts?user_id=${user_id}`);
-        this.alerts = response.data;
+        // Sort alerts by date_added, latest first
+        this.alerts = response.data.sort((a, b) => new Date(b.date_added) - new Date(a.date_added));
         // Only show toast when manually refreshing, not during polling
         if (!this.pollingInterval) {
           this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Alerts fetched successfully', life: 3000 });
@@ -725,7 +820,13 @@ export default {
         if (!this.validateAlert(this.alert)) {
           return;
         }
-        const response = await axios.post(`/alert?user_id=${this.user.id}`, this.alert);
+        // Convert arrays to comma-separated strings
+        const alertData = {
+          ...this.alert,
+          broker: Array.isArray(this.alert.broker) ? this.alert.broker.join(',') : this.alert.broker,
+          position_status: Array.isArray(this.alert.position_status) ? this.alert.position_status.join(',') : this.alert.position_status
+        };
+        const response = await axios.post(`/alert?user_id=${this.user.id}`, alertData);
         console.log(response.data);
         this.showCreateAlertDialog = false;
         this.alert = {
@@ -736,18 +837,38 @@ export default {
           tp3: null,
           box_break: null,
           dip_buy: null,
+          dip_buy_2: null,
           sl: null,
           shares: 0,
           percentage_tp: null,
           percentage_sl: null,
           notes: '',
-          trailing_stop_percentage: null
+          trailing_stop_percentage: null,
+          broker: ['KTrade'],
+          position_status: ['Not Bought']
         };
         this.fetchAlerts();
         this.$toast.add({ severity: 'success', summary: 'Success Message', detail: 'Alert created successfully', life: 3000 });
       } catch (error) {
         console.error('Error creating alert:', error);
       }
+    },
+    openUpdateDialog(alertData) {
+      // Convert comma-separated strings to arrays for multi-select
+      const brokerValue = alertData.broker && alertData.broker.trim() !== '' 
+        ? (typeof alertData.broker === 'string' ? alertData.broker.split(',').map(b => b.trim()) : alertData.broker) 
+        : ['KTrade'];
+      
+      const positionValue = alertData.position_status && alertData.position_status.trim() !== '' 
+        ? (typeof alertData.position_status === 'string' ? alertData.position_status.split(',').map(s => s.trim()) : alertData.position_status) 
+        : ['Not Bought'];
+      
+      this.selectedAlert = {
+        ...alertData,
+        broker: brokerValue,
+        position_status: positionValue
+      };
+      this.showUpdateAlertDialog = true;
     },
     async updateAlert() {
       if (!this.validateAlert(this.selectedAlert)) {
@@ -758,12 +879,27 @@ export default {
       this.selectedAlert.is_tp2_hit = false;
       this.selectedAlert.is_tp3_hit = false;
       this.selectedAlert.is_dip_buy_hit = false;
+      this.selectedAlert.is_dip_buy_2_hit = false;
       this.selectedAlert.is_box_break_hit = false;
       this.selectedAlert.is_percentage_sl_hit = false;
       this.selectedAlert.is_percentage_tp_hit = false;
       this.selectedAlert.is_trailing_stop_hit = false;
+      this.selectedAlert.is_sl_proximity_sent = false;
+      this.selectedAlert.is_tp1_proximity_sent = false;
+      this.selectedAlert.is_tp2_proximity_sent = false;
+      this.selectedAlert.is_tp3_proximity_sent = false;
+      this.selectedAlert.is_dip_buy_proximity_sent = false;
+      this.selectedAlert.is_dip_buy_2_proximity_sent = false;
       this.selectedAlert.total_alerts_sent = 0;
-      const response = await axios.put(`/alert?user_id=${this.user.id}&alert_id=${this.selectedAlert.id}`, this.selectedAlert);
+      
+      // Convert arrays to comma-separated strings
+      const alertData = {
+        ...this.selectedAlert,
+        broker: Array.isArray(this.selectedAlert.broker) ? this.selectedAlert.broker.join(',') : this.selectedAlert.broker,
+        position_status: Array.isArray(this.selectedAlert.position_status) ? this.selectedAlert.position_status.join(',') : this.selectedAlert.position_status
+      };
+      
+      const response = await axios.put(`/alert?user_id=${this.user.id}&alert_id=${this.selectedAlert.id}`, alertData);
       this.showUpdateAlertDialog = false;
       console.log(response.data);
       this.$toast.add({ severity: 'success', summary: 'Success Message', detail: 'Alert updated successfully', life: 3000 });
@@ -1118,6 +1254,85 @@ Time: ${new Date().toLocaleString('en-US')}`,
           life: 3000 
         });
       }
+    },
+    downloadAlertsJSON() {
+      try {
+        // Create a JSON string from alerts
+        const jsonData = JSON.stringify(this.alerts, null, 2);
+        
+        // Create a Blob from the JSON data
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename with current date
+        const date = new Date().toISOString().split('T')[0];
+        link.download = `stock-alerts-${date}.json`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        this.$toast.add({ 
+          severity: 'success', 
+          summary: 'Success', 
+          detail: 'Alerts JSON downloaded successfully', 
+          life: 3000 
+        });
+      } catch (error) {
+        console.error('Error downloading alerts JSON:', error);
+        this.$toast.add({ 
+          severity: 'error', 
+          summary: 'Error', 
+          detail: 'Failed to download alerts JSON', 
+          life: 3000 
+        });
+      }
+    },
+    async updateCurrentValue() {
+      try {
+        if (!this.manualCurrentValue || this.manualCurrentValue <= 0) {
+          this.$toast.add({ 
+            severity: 'error', 
+            summary: 'Error', 
+            detail: 'Please enter a valid current value', 
+            life: 3000 
+          });
+          return;
+        }
+        
+        await axios.put('/user/current-value', {
+          current_value: this.manualCurrentValue
+        });
+        
+        this.showUpdateCurrentValueDialog = false;
+        this.manualCurrentValue = null;
+        
+        // Refresh portfolio data
+        await this.fetchPortfolioPnl();
+        
+        this.$toast.add({ 
+          severity: 'success', 
+          summary: 'Success', 
+          detail: 'Current value updated successfully', 
+          life: 3000 
+        });
+      } catch (error) {
+        console.error('Error updating current value:', error);
+        this.$toast.add({ 
+          severity: 'error', 
+          summary: 'Error', 
+          detail: 'Failed to update current value', 
+          life: 3000 
+        });
+      }
     }
   }
 }
@@ -1411,5 +1626,60 @@ Time: ${new Date().toLocaleString('en-US')}`,
 .preference-item label {
   cursor: pointer;
   user-select: none;
+}
+
+/* Position Tags Styles */
+.position-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.position-tag {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.position-bought {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.position-not-bought {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.position-sold {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.text-gray-400 {
+  color: #9ca3af;
+}
+
+/* Current Values Display in Update Dialog */
+.current-values {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.value-tag {
+  padding: 0.15rem 0.5rem;
+  background-color: #e0e7ff;
+  color: #4338ca;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.text-gray-600 {
+  color: #4b5563;
 }
 </style>
