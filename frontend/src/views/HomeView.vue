@@ -58,7 +58,7 @@
       <template #content>
         <div class="alerts-section">
           <Button @click="fetchAlerts" class="mb-4">Refresh Alerts</Button>
-          <DataTable :value="alerts" stripedRows paginator :rows="10" tableStyle="min-width: 160rem">
+          <DataTable :value="alerts" stripedRows paginator :rows="30" tableStyle="min-width: 160rem">
             <!-- Basic Columns -->
             <Column field="ticker" header="Ticker" sortable></Column>
             <Column field="buy_price" header="Buy Price" sortable></Column>
@@ -86,9 +86,25 @@
                 </div>
               </template>
             </Column>
+            <Column header="Proximity">
+              <template #body="slotProps">
+                <div class="proximity-indicators">
+                  <span 
+                    v-for="proximity in calculateProximity(slotProps.data).sort((a, b) => a.percentage - b.percentage)" 
+                    :key="proximity.type"
+                    class="proximity-badge"
+                    :class="getProximityClass(proximity.type)"
+                  >
+                    {{ proximity.label }}: {{ proximity.percentage }}%
+                  </span>
+                </div>
+              </template>
+            </Column>
             <Column field="sl" header="SL"></Column>
             <Column field="tp1" header="TP1"></Column>
             <Column field="tp2" header="TP2"></Column>
+            <Column field="dip_buy" header="Dip Buy 1"></Column>
+            <Column field="dip_buy_2" header="Dip Buy 2"></Column>
             <Column field="shares" header="Shares"></Column>
             <Column field="tp3" header="TP3"></Column>
             <Column field="broker" header="Broker">
@@ -120,8 +136,6 @@
             <!-- Advanced Columns (shown when showComplexity is true) -->
             <Column v-if="showComplexity" field="percentage_tp" header="TP %"></Column>
             <Column v-if="showComplexity" field="percentage_sl" header="SL %"></Column>
-            <Column field="dip_buy" header="Dip Buy 1"></Column>
-            <Column field="dip_buy_2" header="Dip Buy 2"></Column>
             <Column v-if="showComplexity" field="box_break" header="Box Break"></Column>
             <Column v-if="showComplexity" field="notes" header="Notes"></Column>
             <Column v-if="showComplexity" field="total_alerts_sent" header="Total Alerts Sent"></Column>
@@ -1333,6 +1347,118 @@ Time: ${new Date().toLocaleString('en-US')}`,
           life: 3000 
         });
       }
+    },
+    calculateProximity(alert) {
+      const proximities = [];
+      const currentPrice = alert.current_price;
+      const proximityThreshold = 10; // Show only if within 10%
+
+      if (!currentPrice || currentPrice <= 0) {
+        return proximities;
+      }
+
+      // Helper function to calculate percentage difference
+      const calcProximityPercentage = (targetValue) => {
+        return Math.abs(((currentPrice - targetValue) / targetValue) * 100).toFixed(2);
+      };
+
+      // Check SL
+      if (alert.sl && alert.sl > 0) {
+        const percentage = calcProximityPercentage(alert.sl);
+        if (percentage <= proximityThreshold) {
+          proximities.push({
+            type: 'sl',
+            label: 'SL',
+            percentage: percentage
+          });
+        }
+      }
+
+      // Check TP1
+      if (alert.tp1 && alert.tp1 > 0) {
+        const percentage = calcProximityPercentage(alert.tp1);
+        if (percentage <= proximityThreshold) {
+          proximities.push({
+            type: 'tp1',
+            label: 'TP1',
+            percentage: percentage
+          });
+        }
+      }
+
+      // Check TP2
+      if (alert.tp2 && alert.tp2 > 0) {
+        const percentage = calcProximityPercentage(alert.tp2);
+        if (percentage <= proximityThreshold) {
+          proximities.push({
+            type: 'tp2',
+            label: 'TP2',
+            percentage: percentage
+          });
+        }
+      }
+
+      // Check TP3
+      if (alert.tp3 && alert.tp3 > 0) {
+        const percentage = calcProximityPercentage(alert.tp3);
+        if (percentage <= proximityThreshold) {
+          proximities.push({
+            type: 'tp3',
+            label: 'TP3',
+            percentage: percentage
+          });
+        }
+      }
+
+      // Check Box Break
+      if (alert.box_break && alert.box_break > 0) {
+        const percentage = calcProximityPercentage(alert.box_break);
+        if (percentage <= proximityThreshold) {
+          proximities.push({
+            type: 'box_break',
+            label: 'Box Break',
+            percentage: percentage
+          });
+        }
+      }
+
+      // Check Dip Buy 1
+      if (alert.dip_buy && alert.dip_buy > 0) {
+        const percentage = calcProximityPercentage(alert.dip_buy);
+        if (percentage <= proximityThreshold) {
+          proximities.push({
+            type: 'dip_buy',
+            label: 'Dip Buy 1',
+            percentage: percentage
+          });
+        }
+      }
+
+      // Check Dip Buy 2
+      if (alert.dip_buy_2 && alert.dip_buy_2 > 0) {
+        const percentage = calcProximityPercentage(alert.dip_buy_2);
+        if (percentage <= proximityThreshold) {
+          proximities.push({
+            type: 'dip_buy_2',
+            label: 'Dip Buy 2',
+            percentage: percentage
+          });
+        }
+      }
+
+      return proximities;
+    },
+    getProximityClass(type) {
+      const classMap = {
+        'sl': 'proximity-sl',
+        'tp1': 'proximity-tp',
+        'tp2': 'proximity-tp',
+        'tp3': 'proximity-tp',
+        'box_break': 'proximity-box-break',
+        'dip_buy': 'proximity-dip-buy',
+        'dip_buy_2': 'proximity-dip-buy'
+      };
+      return classMap[type] || '';
     }
   }
 }
@@ -1681,5 +1807,44 @@ Time: ${new Date().toLocaleString('en-US')}`,
 
 .text-gray-600 {
   color: #4b5563;
+}
+
+/* Proximity Indicators Styles */
+.proximity-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.proximity-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.proximity-sl {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+.proximity-tp {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #34d399;
+}
+
+.proximity-box-break {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #60a5fa;
+}
+
+.proximity-dip-buy {
+  background-color: #e9d5ff;
+  color: #6b21a8;
+  border: 1px solid #c084fc;
 }
 </style>
