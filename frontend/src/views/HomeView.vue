@@ -401,6 +401,38 @@
           <Select v-model="calcShares.ticker" filter clearIcon :options="tickers" optionLabel="symbol" optionValue="symbol"
             placeholder="Select Ticker" class="flex-1" @change="onCalcTickerChange" />
         </div>
+        
+        <!-- Quick Price Selection Buttons -->
+        <div v-if="calcShares.alertData" class="flex flex-col gap-2 flex-1">
+          <label class="font-semibold">Quick Price Selection:</label>
+          <div class="flex flex-wrap gap-2">
+            <Button 
+              v-if="calcShares.alertData.dip_buy && calcShares.alertData.dip_buy > 0"
+              @click="setCalcPrice(calcShares.alertData.dip_buy)"
+              :label="`Dip Buy 1: ${calcShares.alertData.dip_buy}`"
+              severity="info"
+              size="small"
+              outlined
+            />
+            <Button 
+              v-if="calcShares.alertData.dip_buy_2 && calcShares.alertData.dip_buy_2 > 0"
+              @click="setCalcPrice(calcShares.alertData.dip_buy_2)"
+              :label="`Dip Buy 2: ${calcShares.alertData.dip_buy_2}`"
+              severity="info"
+              size="small"
+              outlined
+            />
+            <Button 
+              v-if="calcShares.alertData.box_break && calcShares.alertData.box_break > 0"
+              @click="setCalcPrice(calcShares.alertData.box_break)"
+              :label="`Breakout: ${calcShares.alertData.box_break}`"
+              severity="success"
+              size="small"
+              outlined
+            />
+          </div>
+        </div>
+
         <div class="flex flex-col gap-2 flex-1">
           <label for="calc_price">Current Price</label>
           <InputNumber :model-value="calcShares.current_price"  placeholder="Current Price" class="flex-1" @input="(event) => calculateShares(event.value, 'current_price')" :minFractionDigits="2"/>
@@ -742,7 +774,8 @@ export default {
         ticker: '',
         current_price: 0,
         amount: null,
-        result: 0
+        result: 0,
+        alertData: null
       },
       investment: {
         amount: null,
@@ -941,10 +974,20 @@ export default {
       if (!this.calcShares.ticker) {
         this.calcShares.current_price = 0;
         this.calcShares.result = 0;
+        this.calcShares.alertData = null;
         return;
       }
       const response = await this.getSelectedTickerInfo(this.calcShares.ticker);
       this.calcShares.current_price = Number(response.current);
+      
+      // Check if there are any alerts for this ticker
+      const tickerAlert = this.alerts.find(alert => alert.ticker === this.calcShares.ticker);
+      if (tickerAlert) {
+        this.calcShares.alertData = tickerAlert;
+      } else {
+        this.calcShares.alertData = null;
+      }
+      
       console.log(this.calcShares);
       // this.calculateShares();
     },
@@ -959,6 +1002,13 @@ export default {
         this.calcShares.result = Number((this.calcShares.amount / this.calcShares.current_price).toFixed(2));
       } else {
         this.calcShares.result = 0;
+      }
+    },
+    setCalcPrice(price) {
+      this.calcShares.current_price = price;
+      // Recalculate shares if amount is set
+      if (this.calcShares.amount > 0) {
+        this.calcShares.result = Number((this.calcShares.amount / this.calcShares.current_price).toFixed(2));
       }
     },
     async fetchPortfolioPnl() {
