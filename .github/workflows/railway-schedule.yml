@@ -56,8 +56,8 @@ jobs:
         run: |
           if [ "${{ steps.check_time.outputs.action }}" == "up" ]; then
             echo "🚀 Starting Railway Service (8:45 AM PKT)..."
-            railway up --detach --service backend
+            railway up --detach --service stocks-alert-railway
           else
             echo "🛑 Stopping Railway Service (4:45 PM PKT)..."
-            railway down --yes --service backend
+            railway down --yes --service stocks-alert-railway
           fi
