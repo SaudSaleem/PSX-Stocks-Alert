@@ -197,8 +197,8 @@ def scraper():
     print(f"Scraping data at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     scrape_psx()
     check_alerts()
-    # Schedule the next run with a random interval (8 to 15 minutes)
-    next_interval = random.randint(8, 15)
+    # Schedule the next run with a random interval (6 to 10 minutes)
+    next_interval = random.randint(6, 10)
     print(f"Next scrape in {next_interval} minutes")
     schedule.every(next_interval).minutes.do(scraper)
 
