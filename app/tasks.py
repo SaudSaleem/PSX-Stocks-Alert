@@ -11,6 +11,7 @@ import os
 import json
 import time
 import traceback
+import pytz
 load_dotenv()
 
 MAIL_USERNAME = os.getenv('MAIL_USERNAME')
@@ -19,6 +20,47 @@ MAIL_FROM = os.getenv('MAIL_FROM')
 MAIL_PORT = os.getenv('MAIL_PORT')
 MAIL_SERVER = os.getenv('MAIL_SERVER')
 MAIL_STARTTLS = os.getenv('MAIL_STARTTLS')
+
+def is_allowed_time_for_sl_and_breakout():
+    """
+    Check if current time is allowed for SL and breakout notifications and DB updates.
+    
+    Rules:
+    - Monday-Thursday: Before 9:15 AM or after 3:40 PM (Pakistan time)
+    - Friday: Before 9:00 AM or after 4:30 PM (Pakistan time)
+    - Saturday-Sunday: Allowed all day
+    
+    Returns:
+        bool: True if current time is allowed for SL and breakout alerts, False otherwise
+    """
+    # Get current time in Pakistan timezone
+    pakistan_tz = pytz.timezone('Asia/Karachi')
+    now = datetime.now(pytz.UTC).astimezone(pakistan_tz)
+    
+    weekday = now.weekday()  # Monday=0, Sunday=6
+    current_time = (now.hour, now.minute)
+    
+    # Saturday (5) and Sunday (6) - allowed all day
+    if weekday >= 5:
+        return True
+    
+    # Friday (4) - Before 9:00 AM or after 4:30 PM
+    if weekday == 4:
+        if current_time < (9, 0) or current_time > (16, 30):
+            return True
+        else:
+            print(f"SL and breakout alerts blocked on Friday during trading hours (9:00 AM - 4:30 PM). Current time: {now.strftime('%H:%M')}")
+            return False
+    
+    # Monday-Thursday (0-3) - Before 9:15 AM or after 3:40 PM
+    if weekday < 4:
+        if current_time < (9, 15) or current_time > (15, 40):
+            return True
+        else:
+            print(f"SL and breakout alerts blocked during trading hours (9:15 AM - 3:40 PM). Current time: {now.strftime('%H:%M')}")
+            return False
+    
+    return True
 
 def get_ticker_by_symbol(ticker: str):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -447,7 +489,8 @@ def check_alerts():
                     db.commit()
                 
                 # D. Check Stop Loss (Uses Day Low)
-                elif alert.is_sl_hit == False and alert.sl and today_low <= alert.sl:
+                # Only allow SL notifications and DB updates outside trading hours
+                elif alert.is_sl_hit == False and alert.sl and today_low <= alert.sl and is_allowed_time_for_sl_and_breakout():
                     # Distinguish between currently below SL vs. "Wick" touched SL
                     if current_price <= alert.sl:
                         subject = "Stop Loss Alert (EXECUTED)"
@@ -553,7 +596,8 @@ def check_alerts():
                     db.commit()
                     
                 # H. Check Box Break (Uses Day High)
-                elif alert.is_box_break_hit == False and alert.box_break and today_high >= alert.box_break:
+                # Only allow breakout notifications and DB updates outside trading hours
+                elif alert.is_box_break_hit == False and alert.box_break and today_high >= alert.box_break and is_allowed_time_for_sl_and_breakout():
                     alert_data = {
                         'ticker': alert.ticker,
                         'current_price': current_price,
