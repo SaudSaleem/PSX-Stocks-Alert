@@ -1,0 +1,63 @@
+name: Railway Trading Schedule
+
+on:
+  schedule:
+    # -------------------------------------------------------
+    # PKT is UTC+5. We subtract 5 hours for GitHub.
+    # -------------------------------------------------------
+    
+    # START: 8:45 AM PKT = 03:45 UTC
+    # Runs at minute 45 of hour 3, Monday(1) thru Friday(5)
+    - cron: '45 3 * * 1-5'
+
+    # STOP: 4:45 PM PKT = 11:45 UTC
+    # Runs at minute 45 of hour 11, Monday(1) thru Friday(5)
+    - cron: '45 11 * * 1-5'
+
+  # Allows manual button click for testing
+  workflow_dispatch:
+
+jobs:
+  manage-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Determine Action (Start or Stop)
+        id: check_time
+        run: |
+          # Get current hour in UTC (00-23)
+          HOUR=$(date -u +%H)
+          echo "Current UTC Hour is: $HOUR"
+          
+          # LOGIC:
+          # If the hour is 03 (3 AM UTC), we need to go UP.
+          # If the hour is 11 (11 AM UTC), we need to go DOWN.
+          
+          if [ "$HOUR" == "03" ]; then
+            echo "action=up" >> $GITHUB_OUTPUT
+            echo "Time matches Start Time. Setting action to UP."
+          elif [ "$HOUR" == "11" ]; then
+            echo "action=down" >> $GITHUB_OUTPUT
+            echo "Time matches Stop Time. Setting action to DOWN."
+          else
+            # Fail-safe for manual triggers (defaults to UP if unsure)
+            echo "action=up" >> $GITHUB_OUTPUT
+            echo "Manual trigger detected outside schedule. Defaulting to UP."
+          fi
+
+      - name: Run Railway Command
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ "${{ steps.check_time.outputs.action }}" == "up" ]; then
+            echo "🚀 Starting Railway Service (8:45 AM PKT)..."
+            railway up --detach
+          else
+            echo "🛑 Stopping Railway Service (4:45 PM PKT)..."
+            railway down --yes
+          fi
