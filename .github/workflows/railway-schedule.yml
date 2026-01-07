@@ -6,9 +6,9 @@ on:
     # PKT is UTC+5. We subtract 5 hours for GitHub.
     # -------------------------------------------------------
     
-    # START: 8:45 AM PKT = 03:45 UTC
-    # Runs at minute 45 of hour 3, Monday(1) thru Friday(5)
-    - cron: '45 3 * * 1-5'
+    # START: 7:45 AM PKT = 02:45 UTC
+    # Runs at minute 45 of hour 2, Monday(1) thru Friday(5)
+    - cron: '45 2 * * 1-5'
 
     # STOP: 4:45 PM PKT = 11:45 UTC
     # Runs at minute 45 of hour 11, Monday(1) thru Friday(5)
